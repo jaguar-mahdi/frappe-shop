@@ -209,4 +209,32 @@ git push -u origin chore/claude-and-spec-kit
 - الـ`commit` الثاني بلا مسارات يحفظ كل ما تبقى في منطقة التجهيز.
 - `git push -u origin <branch>`: يرفع الفرع إلى `GitHub`. الخيار `-u` (`--set-upstream`) يربط الفرع المحلي بالبعيد، فيكفي بعده `git push` و`git pull` دون أسماء.
 
-(نتيجة الرفع مسجَّلة في الإدخال التالي.)
+**مخرجات الـ`commits`:**
+- `9d2d95c docs: add CLAUDE.md, git workflow guide and learning log` (3 ملفات).
+- `0ec3186 chore: add GitHub Spec Kit v1.4.2 scaffolding for Claude Code` (30 ملفاً، منها `.gitignore`).
+- في الـ`commit` الأول ظهر `[WARNING] Unstaged files detected` ثم `Stashing unstaged files` ثم `Restored changes`. **هذا ليس خطأ.** عند استخدام `git commit -- <paths>` يحفظ `git` المسارات المحددة فقط، فيرى خطاف `pre-commit` بقية الملفات المجهَّزة كأنها "غير مجهَّزة". لذلك خبّأها مؤقتاً (`stash`)، وفحص ملفات هذا الـ`commit` وحدها، ثم أعادها كما كانت. وتأكدنا بـ`git show --stat <hash>` أن كل `commit` يحوي الملفات الصحيحة.
+- `pre-commit run --all-files` بعد الـ`commits`: كل الخطافات `Passed` و`exit=0`.
+
+**مخرجات `git push`:**
+- `* [new branch] chore/claude-and-spec-kit -> chore/claude-and-spec-kit`: أُنشئ الفرع على `GitHub`.
+- `branch 'chore/claude-and-spec-kit' set up to track 'origin/chore/claude-and-spec-kit'`: هذا أثر `-u`.
+- أعطى `GitHub` رابطاً لفتح الـ`PR`: `https://github.com/jaguar-mahdi/frappe-shop/pull/new/chore/claude-and-spec-kit`.
+
+#### 14) تحديث هذا السجل ورفعه
+
+```bash
+git add docs/learning-log.md
+git commit -m "docs: record push results in learning log"
+pre-commit run --all-files
+git push
+```
+
+- بعد `-u` في الرفع الأول يكفي `git push` وحده، لأن الفرع صار مربوطاً بـ`origin/chore/claude-and-spec-kit`.
+- كل `push` جديد إلى فرع له `PR` مفتوح يعيد تشغيل فحوص `CI`.
+- عند `squash merge` ستُدمج الـ`commits` الثلاثة في `commit` واحد على `main` يحمل عنوان الـ`PR`.
+
+### الخطوات التالية
+
+1. افتح الـ`PR` من الرابط أعلاه، وانتظر نجاح `Server` و`Frappe Linter` و`Vulnerable Dependency Check`، ثم ادمج بـ`squash`.
+2. بعد الدمج: `git switch main && git pull --ff-only origin main`.
+3. في جلسة `Claude Code` جديدة: ابدأ بـ`/speckit-constitution`.
