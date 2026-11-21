@@ -659,3 +659,34 @@ gh api repos/jaguar-mahdi/frappe-shop/rulesets/27508557
 صار مسموحاً لـClaude أن يفتح الـ`PR` ويدمجها بـ`gh pr merge --squash` فقط بعد نجاح كل الفحوص المطلوبة، دون `--admin`، ودون `push` إلى `main`.
 - `CLAUDE.md` لا يجوز أن يخالف الدستور، فعُدِّل الدستور إلى `1.1.0`.
 - الرفع `MINOR` لأن التوجيه في قسم `Development Workflow` تغيّر جوهرياً دون حذف أي مبدأ أو إعادة تعريفه.
+
+---
+
+## 2026-11-21 — تجهيز الإصدار `0.1.0`
+
+### ما الذي أُنجز
+
+- `frappe_shop/__init__.py`: `__version__ = "0.1.0"`. الملف `pyproject.toml` يقرأ الإصدار منه (`dynamic = ["version"]` عبر `flit`).
+- `CHANGELOG.md` بصيغة `Keep a Changelog`. بُني من `git log --format='%h %s' main`، وكل `commit` بصيغة `Conventional Commits` وُضع في قسم:
+  - `feat` في `Added`.
+  - `ci` و`docs` التي غيّرت طريقة العمل في `Changed`.
+  - `fix` في `Fixed`.
+- `docs/releasing.md`: الخطوات بالترتيب: `PR` لرفع الإصدار، ثم `merge`، ثم الوسم `vX.Y.Z`، ثم `GitHub Release`، ثم `release workflow`. وفيه جدول يربط `Conventional Commits` بـ`MAJOR`/`MINOR`/`PATCH`.
+
+### لماذا `0.1.0`؟
+
+- `0.x` يعني أن الواجهة غير مستقرة بعد.
+- `MINOR` (`0.0.1 → 0.1.0`) لأن الفرع فيه `feat` (ميزة جديدة).
+
+### الأوامر
+
+```bash
+git switch -c chore/release-0.1.0
+sed -i 's/^__version__ = "0.0.1"$/__version__ = "0.1.0"/' frappe_shop/__init__.py
+git log --format='%h %s' main
+pre-commit run --all-files
+gh pr create --title "chore(release): 0.1.0" ...
+```
+
+- `sed -i 's/A/B/' file`: يستبدل `A` بـ`B` داخل الملف نفسه (`-i` = `in-place`). علامتا `^` و`$` تضمنان مطابقة السطر كاملاً فقط.
+- عنوان الـ`PR` هو `chore(release): 0.1.0`. الجزء `(release)` هو `scope` في `Conventional Commits`.
