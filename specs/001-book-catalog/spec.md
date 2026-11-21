@@ -27,6 +27,18 @@ Delivery only (no online payment). About 10 sample books are available for demo.
 - Q: How is the language entered? → A: As free text.
 - Q: What are the demo sample books? → A: Public-domain classics, each with a price and available stock.
 
+### Session 2026-11-21 (planning)
+
+- Q: The store's author filter only works with a value chosen from a list. Keep author as free text? →
+  A: No. Author is chosen from a list of authors (one author per book). This replaces the earlier
+  "free text" answer for author only.
+- Q: Direct order or quotation request at checkout? → A: Direct order. The customer places an order
+  and sees an order confirmation, and no online "Pay" option is shown.
+- Q: Sample price and stock? → A: 15,000 per book in the store's currency, 20 copies each.
+- Q: Which sample books? → A: 10 public-domain classics by 7 authors, item group "Books", language
+  English, with clearly demo values for ISBN (e.g. "DEMO-0001"), publisher ("Frappe Books Demo
+  Press"), and approximate page counts.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - View book details (Priority: P1)
@@ -140,9 +152,8 @@ and see the new name.
 - A catalog manager enters an ISBN already used by another book: the save is rejected.
 - A book is missing one of the five details: it cannot be published.
 - A book is out of stock: it follows the store's standard out-of-stock behavior.
-- Two books have the same author written differently (for example, with different spacing or spelling):
-  they are treated as different authors, because author and language are free text and only exact
-  values are grouped.
+- Two books by the same author: both link to the same author entry, so spelling variants cannot split
+  the author in the filter. Language is free text, so its spelling is not normalized.
 
 ## Requirements *(mandatory)*
 
@@ -150,10 +161,10 @@ and see the new name.
 
 - **FR-001**: The system MUST record these details for each book: author, ISBN, publisher, number of
   pages, and language.
-- **FR-002**: Each book MUST have exactly one author value.
+- **FR-002**: Each book MUST have exactly one author, chosen from a maintained list of authors.
 - **FR-003**: The system MUST NOT publish a book in the store unless all five details are filled.
 - **FR-004**: ISBN MUST be unique across all books. Its format MUST NOT be validated.
-- **FR-005**: Author, publisher, and language MUST be free text. Number of pages MUST be a positive whole number.
+- **FR-005**: Publisher and language MUST be free text. Number of pages MUST be a positive whole number.
 - **FR-006**: The book page MUST show all five details to customers.
 - **FR-007**: Customers MUST be able to filter the catalog by choosing one author from a list of authors
   who have at least one published book.
@@ -163,7 +174,7 @@ and see the new name.
 - **FR-011**: Cash on Delivery MUST be the only payment method. No online payment MUST be offered or processed.
 - **FR-012**: The store MUST show the display name "Frappe Books" by default. The store owner MUST be able
   to change it without code changes.
-- **FR-013**: The system MUST provide about 10 sample books for demos. Each is a public-domain classic
+- **FR-013**: The system MUST provide 10 sample books for demos. Each is a public-domain classic
   with all five details, a price, and available stock.
 - **FR-014**: Sample book data MUST NOT include cover images unless they are freely licensed.
 
@@ -171,8 +182,8 @@ and see the new name.
 
 - **Book**: A product sold in the store. It has the existing product information (such as name, price,
   and stock) plus author, ISBN, publisher, number of pages, and language. ISBN is unique.
-- **Author**: The single author value of a book. The author filter is built from the distinct author
-  values of published books.
+- **Author**: An entry in the list of authors. Each book links to exactly one author. The author
+  filter is built from the authors of published books.
 - **Order**: A customer order created by the standard checkout. Its payment method is always Cash on Delivery.
 
 ## Success Criteria *(mandatory)*
