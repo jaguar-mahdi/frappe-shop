@@ -29,10 +29,9 @@ def make_cover_svg(title: str, author: str, known_authors: tuple[str, ...] = ())
 	colour = author_colour(author, known_authors)
 	title_lines = textwrap.wrap(title or "", width=16)[:4] or [""]
 	start_y = 200 - (len(title_lines) - 1) * 26
+	title_line = '<text x="200" y="{y}" text-anchor="middle" font-size="40" font-weight="700">{text}</text>'
 	title_svg = "".join(
-		f'<text x="200" y="{start_y + i * 52}" text-anchor="middle" font-size="40" font-weight="700">'
-		f"{escape(line)}</text>"
-		for i, line in enumerate(title_lines)
+		title_line.format(y=start_y + i * 52, text=escape(line)) for i, line in enumerate(title_lines)
 	)
 	return (
 		f'<svg xmlns="http://www.w3.org/2000/svg" width="{COVER_WIDTH}" height="{COVER_HEIGHT}" '

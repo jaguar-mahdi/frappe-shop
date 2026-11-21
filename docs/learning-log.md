@@ -929,3 +929,16 @@ CodeQL detected code written in JavaScript/TypeScript but could not process any 
   - `product-list.png`
   - `book-page.png`
   - `order-confirmation.png`
+
+### خطأ في `CI` على `PR #19`: `Frappe Linter`
+
+```text
+frappe_shop/catalog/covers.py
+❯❱ python.lang.correctness.common-mistakes.string-concat-in-list  ❰❰ Blocking ❱❱
+33┆ f'<text x="200" ... font-weight="700">'
+34┆ f"{escape(line)}</text>"
+```
+
+- **الجذر:** سلسلتا `f-string` متجاورتان داخل `generator` يدمجهما Python ضمنياً (`implicit concatenation`). الكود صحيح هنا، لكن هذا النمط غالباً سببه فاصلة منسية، فالقاعدة `r/python.lang.correctness` تمنعه.
+- **الحل:** قالب نصي واحد مع `.format(...)`. الناتج مطابق: 4 عناصر `<text>`، و`Ran 12 tests ... OK`.
+- قرأنا الخطأ بـ`gh run view <run-id> --log-failed`. هذه محاولة الإصلاح الأولى.
