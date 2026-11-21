@@ -942,3 +942,13 @@ frappe_shop/catalog/covers.py
 - **الجذر:** سلسلتا `f-string` متجاورتان داخل `generator` يدمجهما Python ضمنياً (`implicit concatenation`). الكود صحيح هنا، لكن هذا النمط غالباً سببه فاصلة منسية، فالقاعدة `r/python.lang.correctness` تمنعه.
 - **الحل:** قالب نصي واحد مع `.format(...)`. الناتج مطابق: 4 عناصر `<text>`، و`Ran 12 tests ... OK`.
 - قرأنا الخطأ بـ`gh run view <run-id> --log-failed`. هذه محاولة الإصلاح الأولى.
+
+---
+
+## 2026-11-21 — تجهيز الإصدار `0.2.0`
+
+- `git log --oneline v0.1.0..main`: يعرض الـ`commits` بعد آخر وسم. فيها `feat` (#19)، فالرفع `MINOR`: `0.1.0 → 0.2.0`.
+- `CHANGELOG.md`: قسم `0.2.0` فيه `Added` و`Fixed` و`Security` و`Changed`. `Security` قسم معياري في `Keep a Changelog`، ووُضع فيه إصلاح تنبيه `CodeQL`.
+- بعد الدمج: `gh release create v0.2.0 --target main --generate-notes --title "v0.2.0"`.
+  - هذه المرة يتوقف الـ`job` في بيئة `staging` بانتظار موافقة المسؤول (`required_reviewers`).
+  - لا يحق لـClaude أن يوافق بنفسه.

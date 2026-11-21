@@ -8,6 +8,33 @@ Entries are built from the Conventional Commits on `main` (see [docs/releasing.m
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-21
+
+Storefront polish (`specs/002-storefront-polish`).
+
+### Added
+
+- Home page at `/` with the store name, tagline, a "Browse books" button, and the 4 latest books. ([#19])
+- Website Theme "Frappe Books": burgundy `#7A2E3A` primary colour and the Inter font. ([#19])
+- Navbar with Books, Cart, and My Orders, plus an "Admin" link for staff only. Footer with the store
+  name. ([#19])
+- Generated SVG covers for the sample books, one colour per author. ([#19])
+- Clear empty states with a "Browse books" button, and an order confirmation after Place Order. ([#19])
+- CodeQL code scanning (default setup).
+
+### Fixed
+
+- Checkout: new website users now get the `Customer` role (Portal Settings default role), so the
+  order confirmation page no longer returns 403 after Place Order. ([#18])
+
+### Security
+
+- CI workflow `GITHUB_TOKEN` limited to `contents: read` (CodeQL alert #1). ([#17])
+
+### Changed
+
+- pre-commit now also checks files in `.github/`. ([#16])
+
 ## [0.1.0] - 2026-11-21
 
 First release of the store: the Book catalog (`specs/001-book-catalog`).
@@ -37,7 +64,8 @@ First release of the store: the Book catalog (`specs/001-book-catalog`).
 
 - CI branch name in the README. ([#1])
 
-[Unreleased]: https://github.com/jaguar-mahdi/frappe-shop/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/jaguar-mahdi/frappe-shop/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jaguar-mahdi/frappe-shop/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jaguar-mahdi/frappe-shop/releases/tag/v0.1.0
 [#1]: https://github.com/jaguar-mahdi/frappe-shop/pull/1
 [#2]: https://github.com/jaguar-mahdi/frappe-shop/pull/2
@@ -45,3 +73,7 @@ First release of the store: the Book catalog (`specs/001-book-catalog`).
 [#10]: https://github.com/jaguar-mahdi/frappe-shop/pull/10
 [#11]: https://github.com/jaguar-mahdi/frappe-shop/pull/11
 [#12]: https://github.com/jaguar-mahdi/frappe-shop/pull/12
+[#16]: https://github.com/jaguar-mahdi/frappe-shop/pull/16
+[#17]: https://github.com/jaguar-mahdi/frappe-shop/pull/17
+[#18]: https://github.com/jaguar-mahdi/frappe-shop/pull/18
+[#19]: https://github.com/jaguar-mahdi/frappe-shop/pull/19
