@@ -14,6 +14,32 @@ from frappe_shop.catalog.books import BOOK_ITEM_GROUP
 from frappe_shop.catalog.website import COD_GATEWAY
 
 STORE_DISPLAY_NAME = "Frappe Books"
+STORE_TAGLINE = "Classic books, delivered to your door."
+THEME_NAME = "Frappe Books"
+THEME_FONT = "Inter"
+THEME_PRIMARY_COLOUR = "#7A2E3A"
+HOME_PAGE = "home"
+# Frappe v16 buttons read the CSS variable --btn-primary, and frappe's website SCSS re-assigns Bootstrap's
+# $primary after the theme's own value, so the colour is written as a literal here (custom_scss is compiled last).
+THEME_CUSTOM_SCSS = f""":root {{
+	--btn-primary: {THEME_PRIMARY_COLOUR};
+	--primary: {THEME_PRIMARY_COLOUR};
+}}
+.btn.btn-primary:hover {{
+	background-color: darken({THEME_PRIMARY_COLOUR}, 6%);
+}}
+.page-content-wrapper a:not(.btn):not(.card):not(.nav-link) {{
+	color: {THEME_PRIMARY_COLOUR};
+}}
+"""
+NAVBAR_ITEMS = (("Books", "/all-products"), ("Cart", "/cart"), ("My Orders", "/orders"))
+# English wording for webshop texts (specs/002-storefront-polish, approved 2026-11-21)
+STOREFRONT_TEXTS = {
+	"No products found": "No books found. Try another author or clear the filters.",
+	"Your cart is Empty": "Your cart is empty.",
+	"Cart is Empty": "Your cart is empty.",
+}
+ORDERS_EMPTY_MESSAGE = "You have no orders yet."
 DEFAULT_BRAND_VALUES = (None, "", "Frappe")
 COD_TERM = "Cash on Delivery"
 CASH_MODE_OF_PAYMENT = "Cash"
@@ -33,6 +59,9 @@ def setup_store(company: str | None = None) -> dict:
 		"customer_group": configure_webshop(company),
 		"brand": ensure_store_display_name(),
 		"signup_role": ensure_signup_role(),
+		"theme": ensure_website_theme(),
+		"website": configure_website(),
+		"texts": ensure_storefront_texts(),
 	}
 
 
@@ -195,3 +224,69 @@ def ensure_signup_role() -> str:
 		settings.flags.ignore_permissions = True
 		settings.save()
 	return settings.default_role
+
+
+def ensure_website_theme() -> str:
+	"""FR-005: one calm primary colour and a readable font. The site theme changes only from the default."""
+	if not frappe.db.exists("Color", THEME_PRIMARY_COLOUR):
+		frappe.get_doc(
+			{"doctype": "Color", "__newname": THEME_PRIMARY_COLOUR, "color": THEME_PRIMARY_COLOUR}
+		).insert(ignore_permissions=True)
+	if not frappe.db.exists("Website Theme", THEME_NAME):
+		frappe.get_doc(
+			{
+				"doctype": "Website Theme",
+				"theme": THEME_NAME,
+				"custom": 1,
+				"google_font": THEME_FONT,
+				"primary_color": THEME_PRIMARY_COLOUR,
+				"button_rounded_corners": 1,
+				"custom_scss": THEME_CUSTOM_SCSS,
+			}
+		).insert(ignore_permissions=True)
+	else:
+		theme = frappe.get_doc("Website Theme", THEME_NAME)
+		if not theme.custom_scss:
+			theme.custom_scss = THEME_CUSTOM_SCSS
+			theme.save(ignore_permissions=True)
+
+	current = frappe.db.get_single_value("Website Settings", "website_theme")
+	if current in (None, "", "Standard"):
+		frappe.db.set_single_value("Website Settings", "website_theme", THEME_NAME)
+		current = THEME_NAME
+	return current
+
+
+def configure_website() -> dict:
+	"""FR-001 to FR-003: home page, navbar, footer. Only fills what is empty or still the default."""
+	settings = frappe.get_single("Website Settings")
+	if not settings.home_page:
+		settings.home_page = HOME_PAGE
+	if not settings.copyright:
+		settings.copyright = settings.app_name or STORE_DISPLAY_NAME
+
+	for row in settings.top_bar_items:
+		if row.url == "/all-products" and row.label == "Products":  # webshop's default label
+			row.label = "Books"
+	existing_urls = {row.url for row in settings.top_bar_items}
+	for label, url in NAVBAR_ITEMS:
+		if url not in existing_urls:
+			settings.append("top_bar_items", {"label": label, "url": url})
+
+	settings.flags.ignore_permissions = True
+	settings.save()
+	return {
+		"home_page": settings.home_page,
+		"copyright": settings.copyright,
+		"navbar": [row.label for row in settings.top_bar_items],
+	}
+
+
+def ensure_storefront_texts() -> list[str]:
+	"""FR-006: reword webshop texts through standard English translations (editable by the owner)."""
+	for source, text in STOREFRONT_TEXTS.items():
+		if not frappe.db.exists("Translation", {"language": "en", "source_text": source}):
+			frappe.get_doc(
+				{"doctype": "Translation", "language": "en", "source_text": source, "translated_text": text}
+			).insert(ignore_permissions=True)
+	return sorted(STOREFRONT_TEXTS)

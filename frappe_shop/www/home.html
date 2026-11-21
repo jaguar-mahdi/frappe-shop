@@ -1,0 +1,32 @@
+{% extends "templates/web.html" %}
+
+{% block page_content %}
+<section class="text-center py-5">
+	<h1 class="display-4 font-weight-bold">{{ store_name }}</h1>
+	<p class="lead text-muted mb-4">{{ _(tagline) }}</p>
+	<a class="btn btn-primary btn-lg" href="/all-products">{{ _("Browse books") }}</a>
+</section>
+
+<section class="pb-5">
+	<h2 class="h4 mb-4">{{ _("Latest books") }}</h2>
+	{% if books %}
+	<div class="row">
+		{% for book in books %}
+		<div class="col-6 col-md-3 mb-4">
+			<a class="card h-100 text-reset" href="/{{ book.route }}">
+				{% if book.website_image %}
+				<img class="card-img-top" src="{{ book.website_image }}" alt="{{ book.web_item_name }}" loading="lazy">
+				{% endif %}
+				<div class="card-body">
+					<div class="font-weight-bold">{{ book.web_item_name }}</div>
+					<div class="text-muted small">{{ book.book_author or "" }}</div>
+				</div>
+			</a>
+		</div>
+		{% endfor %}
+	</div>
+	{% else %}
+	<p class="text-muted">{{ _("No products found") }}</p>
+	{% endif %}
+</section>
+{% endblock %}
