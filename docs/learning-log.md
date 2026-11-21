@@ -593,3 +593,39 @@ git push -u origin feat/001-book-catalog
 
 1. افتح الـ`PR` وراقب `Server`. هذه أول مرة يثبّت فيها `CI` تطبيقات `erpnext` و`webshop`، فقد يستغرق التشغيل نحو 15–25 دقيقة.
 2. الإصدار `0.1.0` (`release`) خطوة منفصلة.
+
+---
+
+## 2026-11-21 — إصلاح `Frappe Linter` في `PR #11`
+
+### الخطأ
+
+```text
+frappe_shop/setup/testing.py
+❯❱ frappe-semgrep-rules.rules.frappe-manual-commit  ❰❰ Blocking ❱❱
+34┆ frappe.db.commit()  # nosemgrep: test setup must persist before tests start
+```
+
+قرأناه بـ`gh run view <run-id> --log-failed`، وهو يعرض فقط سجلات الخطوات التي فشلت.
+
+### الجذر
+
+1. **صيغة `nosemgrep` خاطئة.** النص بعد `nosemgrep:` يُقرأ كقائمة معرّفات قواعد (`rule IDs`). فقرأ Semgrep جملتي التوضيحية كقاعدة غير معروفة، ولم يتجاهل القاعدة المقصودة. الصيغة الصحيحة: التوضيح في سطر تعليق مستقل، ثم `# nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit` على سطر الـ`commit`.
+2. **هل نحتاج الـ`commit` أصلاً؟** لا:
+   - `erpnext` `v16` لم يعد فيه `before_tests`.
+   - `before_tests` الخاص بـFrappe (`frappe/utils/install.py`) ينتهي بـ`frappe.db.commit()`، لكنه يستدعي `complete_setup_wizard()` ثم يغيّر إعدادات أخرى بعده.
+   - عندنا `setup_complete()` ينفّذ `frappe.db.commit()` بنفسه في آخر مراحله (`run_post_setup_complete`)، ولا نكتب شيئاً في قاعدة البيانات بعده.
+   - ومشغّل الاختبارات (`frappe/testing/environment.py`) لا ينفّذ `commit` بعد الـ`hooks`، لكننا لا نحتاج ذلك.
+
+### الحل
+
+- حذف السطر بدل إسكات القاعدة: أفضل `nosemgrep` هو ألا تحتاجه. وضعنا مكانه تعليقاً يشرح لماذا لا يوجد `commit`.
+- تحققنا على موقع جديد بلا شركة (`ci-check.localhost`): `Ran 19 tests ... OK`، والشركة `Frappe Books Test` بقيت بعد الـ`rollback`. ثم حذفنا الموقع.
+
+```bash
+git commit -m "fix: remove manual commit from before_tests"
+git push
+gh pr checks 11 --watch
+```
+
+- `gh pr checks <n> --watch`: ينتظر ويحدّث حالة الفحوص حتى تنتهي كلها.

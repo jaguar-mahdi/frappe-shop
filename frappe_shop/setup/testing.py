@@ -31,4 +31,5 @@ def before_tests():
 			"setup_demo": 0,
 		}
 	)
-	frappe.db.commit()  # nosemgrep: test setup must persist before tests start
+	# No explicit commit here: setup_complete() commits in its last stage (run_post_setup_complete),
+	# so the Company survives the per-class rollback of IntegrationTestCase.
