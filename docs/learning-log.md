@@ -570,4 +570,26 @@ git add -A && pre-commit run --all-files
 - `bench get-app --branch version-16 --skip-assets <name> <url>` لـ`payments` ثم `erpnext` ثم `webshop`، بروابط صريحة.
 - `install-app` لكل تطبيق بترتيب الاعتماديات (`dependencies`) قبل `frappe_shop`.
 
-(الـ`commits` والرفع في الأسفل.)
+
+### الـ`commits` والرفع
+
+```bash
+git reset -q                       # إلغاء التجهيز للبدء بتجهيز كل جزء على حدة
+git add specs/ && git commit -m "docs: add plan, research and tasks for book catalog (001)"
+git add <core files> && git commit -m "feat: add book fields as fixtures, author filter and cash on delivery setup"
+git add frappe_shop/demo && git commit -m "feat: add idempotent sample books function for demo"
+git add <tests, setup/testing.py, hooks.py> && git commit -m "test: add server tests for book catalog"
+git add .github/workflows/ci.yml && git commit -m "ci: install payments, erpnext and webshop on version-16"
+git add docs/learning-log.md && git commit -m "docs: add learning log entry for book catalog implementation"
+pre-commit run --all-files
+git push -u origin feat/001-book-catalog
+```
+
+- سطر `before_tests` في `hooks.py` حُذف مؤقتاً قبل `commit` الـ`feat` ثم أُعيد في `commit` الـ`test`، حتى لا يشير أي `commit` إلى ملف غير موجود فيه.
+- **ملاحظة:** في `commit` الـ`ci` ظهر `(no files to check)` حتى لـ`check yaml`. السبب أن `exclude: 'node_modules|.git'` في `.pre-commit-config.yaml` تعبير نمطي (`regex`)، و`.git` فيه يطابق `.github/` أيضاً، فملفات `CI` لا تُفحص أبداً. تحققنا من صحة الـ`YAML` يدوياً بـ`yaml.safe_load`. يمكن إصلاح الأمر لاحقاً في `PR` منفصل.
+- **مخرجات الرفع:** `* [new branch] feat/001-book-catalog -> feat/001-book-catalog`، والرابط `https://github.com/jaguar-mahdi/frappe-shop/pull/new/feat/001-book-catalog`.
+
+### الخطوات التالية
+
+1. افتح الـ`PR` وراقب `Server`. هذه أول مرة يثبّت فيها `CI` تطبيقات `erpnext` و`webshop`، فقد يستغرق التشغيل نحو 15–25 دقيقة.
+2. الإصدار `0.1.0` (`release`) خطوة منفصلة.
