@@ -1,5 +1,7 @@
 """User Stories 2, 3, 5: author filter and search, Cash on Delivery, store display name."""
 
+from unittest.mock import patch
+
 import frappe
 from frappe.tests import IntegrationTestCase
 
@@ -76,3 +78,30 @@ class TestStoreSetup(IntegrationTestCase):
 		frappe.db.set_single_value("Website Settings", "brand_html", "_Test Store Name")
 		setup_store()
 		self.assertEqual(frappe.db.get_single_value("Website Settings", "brand_html"), "_Test Store Name")
+
+	def test_new_website_users_get_customer_role(self):
+		"""Regression: users who sign up must get the Customer role, or checkout breaks for them."""
+		from frappe.core.doctype.user.user import sign_up
+
+		self.assertEqual(frappe.db.get_single_value("Portal Settings", "default_role"), "Customer")
+
+		# sign-up may be disabled on a site (a product choice); enable it only inside this test
+		signup_disabled = frappe.db.get_single_value("Website Settings", "disable_signup")
+		self.addCleanup(frappe.db.set_single_value, "Website Settings", "disable_signup", signup_disabled)
+		frappe.db.set_single_value("Website Settings", "disable_signup", 0)
+
+		email = f"_test-signup-{frappe.generate_hash(length=8)}@example.com"
+		frappe.set_user("Guest")
+		self.addCleanup(frappe.set_user, "Administrator")
+		with patch("frappe.core.doctype.user.user.User.send_welcome_mail_to_user"):
+			sign_up(email, "Test Signup", "")
+		frappe.set_user("Administrator")
+
+		self.assertEqual(frappe.db.get_value("User", email, "user_type"), "Website User")
+		self.assertIn("Customer", frappe.get_roles(email))
+
+	def test_signup_role_set_by_owner_is_kept(self):
+		frappe.db.set_single_value("Portal Settings", "default_role", "_Test Role")
+		self.addCleanup(frappe.db.set_single_value, "Portal Settings", "default_role", "Customer")
+		setup_store()
+		self.assertEqual(frappe.db.get_single_value("Portal Settings", "default_role"), "_Test Role")

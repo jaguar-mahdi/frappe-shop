@@ -20,6 +20,7 @@ CASH_MODE_OF_PAYMENT = "Cash"
 AUTHOR_FILTER_FIELD = "book_author"
 FALLBACK_CUSTOMER_GROUP = "Individual"
 FALLBACK_PRICE_LIST = "Standard Selling"
+CUSTOMER_ROLE = "Customer"
 
 
 def setup_store(company: str | None = None) -> dict:
@@ -31,6 +32,7 @@ def setup_store(company: str | None = None) -> dict:
 		"payment_gateway_account": ensure_cod_gateway_account(company),
 		"customer_group": configure_webshop(company),
 		"brand": ensure_store_display_name(),
+		"signup_role": ensure_signup_role(),
 	}
 
 
@@ -178,3 +180,18 @@ def ensure_store_display_name() -> str:
 		settings.flags.ignore_permissions = True
 		settings.save()
 	return settings.brand_html
+
+
+def ensure_signup_role() -> str:
+	"""Website users who sign up get the Customer role (fix: checkout and order page for new customers).
+
+	Without a Portal Settings default role, new website users have no Customer role: ERPNext does not
+	create a Customer for them at login, and the order confirmation page answers 403 after Place Order.
+	A default role chosen by the owner is never overwritten.
+	"""
+	settings = frappe.get_single("Portal Settings")
+	if not settings.default_role:
+		settings.default_role = CUSTOMER_ROLE
+		settings.flags.ignore_permissions = True
+		settings.save()
+	return settings.default_role
