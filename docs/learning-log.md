@@ -799,3 +799,32 @@ pre-commit run --all-files                                                    # 
 
 - `git stash` يحفظ التعديل مؤقتاً ويعيد الملف إلى حالته الأصلية، و`git stash pop` يعيد التعديل. بهذا قارنّا النمطين على الملف نفسه.
 - لم يظهر أي خطأ جديد في `.github/`: الخطافات المنطبقة هناك هي `check-yaml` و`check-merge-conflict`، ونجحت كلها.
+## 2026-11-21 — `CodeQL`: تفعيل `default setup` وإصلاح التنبيه #1
+
+### الأوامر
+
+```bash
+gh api repos/jaguar-mahdi/frappe-shop/code-scanning/default-setup                 # state: not-configured
+gh api -X PATCH repos/jaguar-mahdi/frappe-shop/code-scanning/default-setup -f state=configured -f query_suite=default
+gh run watch <run-id>
+gh api "repos/jaguar-mahdi/frappe-shop/code-scanning/alerts?state=open"
+```
+
+- `-X PATCH`: يعدّل إعداداً موجوداً. `-f key=value` يرسل حقلاً في جسم الطلب (`body`).
+- الـ`token` كان كافياً: لديه صلاحية `repo`، والمستخدم هو المالك.
+
+### خطأ ظهر في أول تحليل: `Analyze (javascript-typescript)` فشل
+
+```text
+Only found JavaScript or TypeScript files that were empty or contained syntax errors.
+CodeQL detected code written in JavaScript/TypeScript but could not process any of it.
+```
+
+- **الجذر:** ملف JS الوحيد في التطبيق هو `book_author.js`، وهو قالب مولَّد تلقائياً وشبه فارغ، فلم يجد `CodeQL` شيئاً يحلّله.
+- **الحل:** لا يحتاج شيئاً. الـ`job` المسمى `Adjust Configuration` حذف `javascript-typescript` من اللغات تلقائياً، فصارت `["actions", "python"]`، وأصبحت نتيجة التشغيل كله `success`.
+
+### التنبيه #1: `actions/missing-workflow-permissions` (`medium`) في `.github/workflows/ci.yml`
+
+- **حقيقي:** `ci.yml` بلا كتلة `permissions`، فيأخذ `GITHUB_TOKEN` الصلاحيات الافتراضية للمستودع، وقد تكون كتابة. هذا مخالف لمبدأ أقل صلاحية (`least privilege`).
+- **الحل:** `permissions: contents: read` في أعلى الملف. الـ`job` `Server` يقرأ الكود فقط. أما `linter.yml` و`release.yml` ففيهما الكتلة أصلاً.
+- `Dependabot alerts` و`secret scanning alerts`: صفر تنبيهات مفتوحة.
