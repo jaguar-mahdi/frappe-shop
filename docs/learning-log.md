@@ -690,3 +690,31 @@ gh pr create --title "chore(release): 0.1.0" ...
 
 - `sed -i 's/A/B/' file`: يستبدل `A` بـ`B` داخل الملف نفسه (`-i` = `in-place`). علامتا `^` و`$` تضمنان مطابقة السطر كاملاً فقط.
 - عنوان الـ`PR` هو `chore(release): 0.1.0`. الجزء `(release)` هو `scope` في `Conventional Commits`.
+
+---
+
+## 2026-11-21 — `release workflow`: صورة `Docker` على `GHCR` ونشر (`deployment`) إلى `staging`
+
+### القرارات ومصادرها
+
+- **قرأنا توثيق `frappe_docker` الحالي** (`docs/02-setup/02-build-setup.md`) و`README` الخاص بـ`docker/*` بدل الاعتماد على الذاكرة:
+  - الطريقة الموثَّقة هي `images/layered/Containerfile` مع `--build-arg=FRAPPE_BRANCH=version-16`.
+  - يُمرَّر `apps.json` كـ`BuildKit secret` باسم `apps_json`. التوثيق يحذّر من `--build-arg` لأنه يظهر دائماً في `docker image history`.
+  - **لا يوجد `APPS_JSON_BASE64` في التوثيق الحالي**، فهو من طريقة قديمة.
+- **`frappe_docker` مثبَّت على `v4.2.0`** (الـ`commit` `61d35da`، عمره نحو 3 أسابيع)، وليس `#main`. سياق البناء (`context`) هو `https://github.com/frappe/frappe_docker.git#<sha>`.
+- **`apps.json`** يُكتب أثناء التشغيل (`heredoc`):
+  - `payments` و`erpnext` و`webshop` على `version-16`.
+  - `frappe_shop` على وسم الإصدار (`github.event.release.tag_name`). الحقل `branch` يقبل الوسم، لأن `git clone --branch` يقبل الوسوم.
+- **الوسوم (`tags`)** عبر `docker/metadata-action`:
+  - `type=semver,pattern={{version}}` تعطي `0.1.0`.
+  - `type=sha,format=long` تعطي `sha-<40 حرفاً>`.
+  - `flavor: latest=false` يمنع `latest`.
+- **كل `action` مثبَّتة على `SHA` كامل من 40 حرفاً** مع تعليق الإصدار. الوسم مثل `v7` يمكن تحريكه، أما الـ`SHA` فلا يتغيّر.
+- `permissions: contents: read, packages: write`، والمصادقة بـ`GITHUB_TOKEN` فقط، أي لا أسرار دائمة.
+- `environment: staging` مع `url`: GitHub يسجّل `deployment` تلقائياً لأي `job` يحمل `environment`.
+
+### ملاحظات
+
+- طلبتُ تثبيت `actionlint` لفحص الـ`workflow`، فرفضه نظام الصلاحيات. تحققنا من صحة الـ`YAML` بـ`yaml.safe_load` فقط.
+- `pre-commit` لا يفحص `.github/` بسبب `exclude: 'node_modules|.git'`.
+- هذا الـ`workflow` لا يعمل داخل `PR`، بل عند نشر الإصدار فقط. لذلك يُختبر فعلياً في الخطوة التالية (`gh release create`).
