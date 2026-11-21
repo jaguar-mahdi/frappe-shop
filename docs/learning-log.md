@@ -975,3 +975,8 @@ frappe_shop/catalog/covers.py
   - الصفحة تعرض `ع.د 15,000` و`/ Book`.
   - الطلب `SAL-ORD-2026-00007` بنقرة حقيقية في 0.9 ثانية.
 - **تحقق نشر `v0.2.0`:** الحالة `success` في `staging`. الصورة `ghcr.io/jaguar-mahdi/frappe-shop:0.2.0` و`sha-ee75b90…`، وفيها `frappe-shop==0.2.0`.
+
+### خطأ في `CI` على `PR #21`: `test_iqd_prices_have_no_decimals`
+
+- `AssertionError: '' != '0'`: في `CI` لم تكن هناك `Webshop Settings.price_list`، لأن كل `class` اختبار يتراجع (`rollback`) عن بياناته، و`TestPriceFormat` لم يستدعِ `setup_store()`. محلياً نجح الاختبار لأن الإعدادات محفوظة دائماً في الموقع.
+- **الحل:** `setUpClass` يستدعي `setup_store()`. الدرس: الاختبار يجب ألا يعتمد على حالة موقع التطوير.

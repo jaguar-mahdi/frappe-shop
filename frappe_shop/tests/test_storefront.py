@@ -95,6 +95,11 @@ class TestStorefrontPages(IntegrationTestCase):
 
 
 class TestPriceFormat(IntegrationTestCase):
+	@classmethod
+	def setUpClass(cls):
+		super().setUpClass()
+		setup_store()  # each test class rolls back, so CI needs the store (price list) set up here
+
 	def test_iqd_prices_have_no_decimals(self):
 		"""Fix: 15,000 not 15,000.000 when the store sells in IQD."""
 		from frappe.utils import fmt_money
