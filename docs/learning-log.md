@@ -370,3 +370,204 @@ git push -u origin docs/001-book-catalog-spec
 1. راجع الـ`PR`، وخصوصاً قسم `Assumptions` في `spec.md`، ثم ادمجه بـ`squash`.
 2. اختياري: `/speckit-clarify` لتأكيد الافتراضات.
 3. ثم `/speckit-plan` على فرع جديد، مثل `docs/001-book-catalog-plan`.
+
+---
+
+## 2026-11-21 — `SDD` المرحلة 2: `plan` ثم `tasks` ثم `implement` لميزة "Book catalog"
+
+### ما الذي أُنجز ولماذا
+
+- `/speckit-plan`: كُتبت ملفات `plan.md` و`research.md` و`data-model.md` و`contracts/server-interfaces.md` و`quickstart.md`. نجحت الخطة في `Constitution Check` (`v1.0.0`).
+- كشف البحث تعارضين بين الـ`spec` وما يسمح به `webshop` في إعداداته القياسية، فطُرحت 4 أسئلة على المسؤول عن المشروع (`maintainer`). القرارات:
+  - المؤلف صار `Link` إلى `DocType` جديد اسمه `Book Author`.
+  - الطلب مباشر (`Place Order`) مع `override` صغير يخفي زر `Pay`.
+  - سعر كل كتاب 15,000 مع 20 نسخة في المخزون.
+  - قائمة الكتب العشرة بقيم تجريبية (`demo`).
+  - حُدِّثت الـ`spec` بقسم `Clarifications` جديد.
+- `/speckit-tasks`: ملف `tasks.md` فيه 25 مهمة مرتبة حسب `user story`.
+- `/speckit-implement`: نُفِّذت المهام كلها، ثم تُحقِّق منها على الموقع، ثم بـ19 اختباراً آلياً.
+- تحديث `ci.yml` ليثبّت `payments` و`erpnext` و`webshop`.
+
+### مصطلحات Frappe المستخدمة
+
+- `Custom Field`: حقل يُضاف إلى `DocType` موجود (مثل `Item`) دون تعديل كود `erpnext`.
+- `fixtures`: سجلات من قاعدة البيانات تُصدَّر إلى ملفات `JSON` داخل التطبيق، ويعيد `bench migrate` إنشاءها على أي موقع.
+- `Property Setter`: يغيّر خاصية في `DocType` موجود، وهنا غيّر `search_fields` لـ`Website Item`.
+- `hooks.py`: ملف يخبر Frappe متى يستدعي كودنا:
+  - `doc_events`: عند حفظ مستند.
+  - `update_website_context`: عند بناء صفحة ويب.
+  - `before_tests`: قبل تشغيل الاختبارات.
+  - `required_apps`: التطبيقات التي يجب أن تكون مثبَّتة قبل تطبيقنا.
+
+### الأوامر بالتفصيل
+
+#### 1) التحديث وإنشاء الفرع
+
+```bash
+cd /workspace/development/frappe-bench/apps/frappe_shop && pwd && git status -sb | head -3 && git fetch origin --prune
+git switch main && git pull --ff-only origin main && git switch -c feat/001-book-catalog
+```
+
+**المخرجات:** `4981bd6..194c64a main -> origin/main`، أي أن الـ`PR #10` دُمج. ثم `Fast-forward` وإنشاء الفرع. البادئة `feat` لأن هذا الفرع يضيف ميزة.
+
+#### 2) قراءة المهارات والتحقق من الملفات
+
+```bash
+sed -n '/^## Outline/,$p' .claude/skills/speckit-plan/SKILL.md      # (و tasks و implement)
+git diff --stat ee82fd6 HEAD -- specs .specify/memory CLAUDE.md
+.specify/scripts/bash/setup-plan.sh --json
+```
+
+- `sed -n '/A/,$p'`: يطبع من أول سطر يطابق `A` حتى نهاية الملف.
+- `git diff --stat <old> HEAD -- <paths>`: هل تغيّرت هذه الملفات بين آخر `commit` لنا وبين `main` بعد الدمج؟ لم يطبع شيئاً، أي لم يعدّل أحد الـ`spec` عند الدمج.
+- `setup-plan.sh --json`: نسخ قالب `plan.md` وأعاد المسارات بصيغة `JSON`.
+
+#### 3) البحث في كود `webshop` و`frappe` (للقراءة فقط)
+
+```bash
+git -C apps/<app> rev-parse --abbrev-ref HEAD; git -C apps/<app> describe --tags --abbrev=0
+grep -n "<pattern>" <file>; sed -n A,Bp <file>
+```
+
+- `git -C <dir>`: يشغّل `git` كأنك داخل ذلك المجلد، دون `cd`. استُعمل للقراءة فقط.
+- `describe --tags --abbrev=0`: أقرب وسم (`tag`) للإصدار. `webshop` ليس له وسوم.
+
+**أهم ما وُجد:**
+- `validate_field_filters`: فلاتر `webshop` تقبل حقول `Link` فقط، وهذا سبب قرار `Book Author`.
+- `validate_checkout`: `enable_checkout` يُطفأ تلقائياً إذا لم يوجد `payment_gateway_account`.
+- `order.html`: زر `Pay` يظهر إذا كان `enabled_checkout` مفعّلاً.
+- `post_process_context`: يشغّل `update_website_context` بعد `get_context`، فيمكن للـ`hook` أن يغيّر ما وضعته الصفحة.
+- `_get_missing_mandatory_fields`: الخادم يفحص `reqd` فقط، ولا يفحص `mandatory_depends_on`.
+- `erpnext` `v16` ليس فيه `before_tests`، واستيراد `erpnext.tests.utils` ينشئ بيانات `_Test` كثيرة.
+
+#### 4) فحص الموقع
+
+```bash
+bench --site development.localhost execute frappe.get_all --kwargs '{"doctype":"Company",...}'
+bench --site development.localhost execute frappe.db.get_single_value --args '["Webshop Settings","enabled"]'
+```
+
+- `bench --site <s> execute <dotted.path>`: يشغّل دالة Python داخل الموقع.
+- `--args` تُمرَّر بصيغة `JSON list`، و`--kwargs` بصيغة `JSON object`.
+
+**المخرجات:** الشركة `Nawat` بعملة `IQD`، و`Webshop Settings` غير مُعدّة.
+
+#### 5) خطأ: `Could not find Module: Frappe Shop`
+
+```bash
+../env/bin/python <scratchpad>/create_meta.py
+```
+
+- **الخطأ:** `frappe.exceptions.LinkValidationError: Could not find Module: Frappe Shop`
+- **الجذر:** التطبيق `frappe_shop` لم يكن مثبَّتاً على `development.localhost` (`installed_apps` لم يكن فيه)، فلم يوجد `Module Def` اسمه "Frappe Shop".
+- **الحل:**
+
+```bash
+bench --site development.localhost install-app frappe_shop
+```
+
+`install-app` يتحقق أولاً من `required_apps`. **المخرجات:** `App erpnext already installed` ثم `App webshop already installed` ثم `Installing frappe_shop...`.
+
+#### 6) إنشاء `DocType` و`Custom Fields` و`Property Setter`
+
+السكربت يستخدم `frappe.get_doc({"doctype": "DocType", ...}).insert()` و`create_custom_fields(...)` و`make_property_setter(...)`.
+- مع `developer_mode` يكتب Frappe ملفات `book_author.json/.py/.js` داخل التطبيق تلقائياً: `Wrote document file for DocType Book Author`.
+- عُيِّن `module = "Frappe Shop"` لكل الحقول حتى يلتقطها فلتر `fixtures`.
+
+#### 7) تصدير `fixtures` و`migrate`
+
+```bash
+bench --site development.localhost export-fixtures --app frappe_shop
+bench --site development.localhost migrate
+```
+
+- `export-fixtures`: يقرأ `fixtures` في `hooks.py` ويكتب `custom_field.json` (8 سجلات) و`property_setter.json` (سجل واحد).
+- `migrate`: يطبّق `patches`، ويزامن `DocTypes`، ويستورد `fixtures`. **المخرجات:** `Executing after_migrate hooks...` دون أخطاء.
+- تأكدنا من الأعمدة بـ`frappe.db.get_table_columns`: وُجدت `book_author` و`book_isbn` وبقية الحقول.
+
+#### 8) خطأ: `Segmentation fault (core dumped)`، `exit=139`
+
+```bash
+/workspace/development/frappe-bench/env/bin/python -X faulthandler -u <scratchpad>/inspect.py
+```
+
+- `-X faulthandler`: يطبع مكان الانهيار حتى في `segfault`. أما `-u` فيلغي التخزين المؤقت للمخرجات.
+- **الجذر:** سمّيت السكربت `inspect.py`. يضع Python مجلد السكربت أول `sys.path`، فلما استورد `dataclasses` الوحدة القياسية `inspect` حمّل ملفي أنا. نتج استيراد دائري انهار داخل `orjson`. يسمى هذا `module shadowing`.
+- **الحل:** إعادة التسمية إلى `site_probe.py`، والتشغيل بـ`python -I` (الوضع المعزول `isolated`، لا يضيف مجلد السكربت إلى `sys.path`).
+
+#### 9) البيانات التجريبية: التشغيل مرتين
+
+```bash
+bench --site development.localhost execute frappe_shop.demo.sample_books.create_sample_books   # مرتان
+```
+
+**المخرجات:** في المرة الأولى `"created": [10 books]`، وفي الثانية `"created": [], "existing": [10 books]`. هذا يثبت `idempotency`، أي أن تكرار التشغيل آمن.
+
+#### 10) خطأ: `curl` أعاد `000`
+
+```bash
+curl -s -o page.html -w '%{http_code}' -H "Host: development.localhost" http://127.0.0.1:8000/all-products
+```
+
+- `-w '%{http_code}'`: يطبع رمز `HTTP`. القيمة `000` تعني "لا اتصال".
+- `-H "Host: ..."`: يختار الموقع، لأن `bench` يخدم عدة مواقع على المنفذ نفسه.
+- **الجذر:** افترضت المنفذ 8000، والحقيقي 8001. هذا مكتوب في `Procfile` (`bench serve --port 8001`) وفي `common_site_config.json`، وأكده `netstat -ltnp`.
+- **بعد التصحيح:** `200` للصفحتين. صفحة الكتاب تعرض `DEMO-0003` و`Number of Pages` و`Frappe Books Demo Press`. فلتر `Charles Dickens` أعاد كتابيه فقط، وبحث `wells` أعاد كتابي H. G. Wells.
+
+#### 11) تجربة `Place Order` مع `rollback`
+
+سكربت ينشئ مستخدماً تجريبياً وسلة وعنواناً، ثم يستدعي `place_order()`، ثم ينفّذ `frappe.db.rollback()`.
+
+**المخرجات:**
+- `Sales Order` بقيمة `docstatus 1` و`order_type Shopping Cart`.
+- `Cash on Delivery [('Cash on Delivery', 'Cash', 100.0)]`.
+- `payment requests: 0`.
+- الـ`hook` أعاد `{'enabled_checkout': False}`، أي أن `Pay` مخفي.
+- بعد `rollback` لم يبقَ المستخدم التجريبي.
+
+#### 12) الاختبارات
+
+```bash
+bench --site development.localhost set-config allow_tests true
+bench --site development.localhost run-tests --app frappe_shop
+```
+
+- `set-config`: يكتب في `site_config.json` المحلي، وهو غير مرفوع إلى `git`. `run-tests` يرفض العمل بدونه حماية للمواقع الحقيقية.
+- **فشل أول:** `test_setup_is_idempotent` وجد `brand: '_Test Store Name'`.
+  - **الجذر:** اختبار آخر غيّر الاسم، و`rollback` لا يحدث إلا في نهاية الـ`class`، وترتيب الاختبارات أبجدي، فتسرّبت الحالة إلى الاختبار التالي.
+  - **الحل:** `self.addCleanup(...)` يعيد القيمة الأصلية.
+- **النتيجة:** `Ran 19 tests ... OK`.
+
+#### 13) بروفة `CI` على موقع مؤقت
+
+```bash
+bench new-site ci-check.localhost --db-root-password *** --admin-password admin --mariadb-user-host-login-scope='%'
+bench --site ci-check.localhost install-app payments      # ثم erpnext ثم webshop ثم frappe_shop
+bench --site ci-check.localhost run-tests --app frappe_shop
+bench drop-site ci-check.localhost --db-root-password *** --no-backup --force
+```
+
+- الغرض: موقع جديد بلا شركة، تماماً مثل `test_site` في `CI`.
+- `--mariadb-user-host-login-scope='%'`: ضروري لأن `MariaDB` في حاوية (`container`) أخرى.
+- **خطأ ظهر هنا فقط:** `SQL functions are not allowed as strings in SELECT: sum(actual_qty)`.
+  - **الجذر:** سطر في الاختبار لا يعمل إلا عندما تُنشأ الكتب لأول مرة. في `development.localhost` كانت الكتب موجودة فلم يُنفَّذ السطر. وFrappe `v16` يمنع دوال `SQL` المكتوبة كنص.
+  - **الحل:** الجمع في Python: `sum(frappe.get_all("Bin", ..., pluck="actual_qty"))`.
+- **بعدها:** `Ran 19 tests ... OK`، وأنشأ `before_tests` الشركة `Frappe Books Test`. ثم حُذف الموقع ومجلد `archived/sites/ci-check.localhost`.
+
+#### 14) `pre-commit`
+
+```bash
+git add -A && pre-commit run --all-files
+```
+
+- النتيجة الأولى `ruff-format ... Failed - files were modified by this hook`. **هذا ليس خطأ:** الأداة أعادت تنسيق 4 ملفات وأبلغت بـ`Failed` حتى تراجع التغيير قبل الحفظ.
+- بعد `git add -A` وإعادة التشغيل: `exit=0`.
+
+### تغييرات `ci.yml`
+
+- `pip install frappe-bench==5.31.1`: إصدار مثبَّت بدل "أحدث إصدار".
+- `bench init --frappe-branch version-16`: بدون هذا الخيار يُستنسخ الفرع الافتراضي لـ`frappe` (`develop`)، وهو لا يتوافق مع `erpnext` `version-16`.
+- `bench get-app --branch version-16 --skip-assets <name> <url>` لـ`payments` ثم `erpnext` ثم `webshop`، بروابط صريحة.
+- `install-app` لكل تطبيق بترتيب الاعتماديات (`dependencies`) قبل `frappe_shop`.
+
+(الـ`commits` والرفع في الأسفل.)
