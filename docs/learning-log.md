@@ -766,3 +766,35 @@ curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $T" -H 'Accept:
 
 1. ظهور الحزمة (`visibility`): الحالة الآن قابلة للسحب العلني، وتُغيَّر من صفحة الحزمة ← `Package settings`.
 2. موافقة يدوية (`required reviewers`) على `staging`: الآن لا توجد، وتُضاف من `Settings` ← `Environments` ← `staging`.
+
+---
+
+## 2026-11-21 — `CodeQL`: تفعيل `default setup` وإصلاح التنبيه #1
+
+### الأوامر
+
+```bash
+gh api repos/jaguar-mahdi/frappe-shop/code-scanning/default-setup                 # state: not-configured
+gh api -X PATCH repos/jaguar-mahdi/frappe-shop/code-scanning/default-setup -f state=configured -f query_suite=default
+gh run watch <run-id>
+gh api "repos/jaguar-mahdi/frappe-shop/code-scanning/alerts?state=open"
+```
+
+- `-X PATCH`: يعدّل إعداداً موجوداً. `-f key=value` يرسل حقلاً في جسم الطلب (`body`).
+- الـ`token` كان كافياً: لديه صلاحية `repo`، والمستخدم هو المالك.
+
+### خطأ ظهر في أول تحليل: `Analyze (javascript-typescript)` فشل
+
+```text
+Only found JavaScript or TypeScript files that were empty or contained syntax errors.
+CodeQL detected code written in JavaScript/TypeScript but could not process any of it.
+```
+
+- **الجذر:** ملف JS الوحيد في التطبيق هو `book_author.js`، وهو قالب مولَّد تلقائياً وشبه فارغ، فلم يجد `CodeQL` شيئاً يحلّله.
+- **الحل:** لا يحتاج شيئاً. الـ`job` المسمى `Adjust Configuration` حذف `javascript-typescript` من اللغات تلقائياً، فصارت `["actions", "python"]`، وأصبحت نتيجة التشغيل كله `success`.
+
+### التنبيه #1: `actions/missing-workflow-permissions` (`medium`) في `.github/workflows/ci.yml`
+
+- **حقيقي:** `ci.yml` بلا كتلة `permissions`، فيأخذ `GITHUB_TOKEN` الصلاحيات الافتراضية للمستودع، وقد تكون كتابة. هذا مخالف لمبدأ أقل صلاحية (`least privilege`).
+- **الحل:** `permissions: contents: read` في أعلى الملف. الـ`job` `Server` يقرأ الكود فقط. أما `linter.yml` و`release.yml` ففيهما الكتلة أصلاً.
+- `Dependabot alerts` و`secret scanning alerts`: صفر تنبيهات مفتوحة.

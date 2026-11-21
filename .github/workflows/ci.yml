@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: main-frappe_shop-${{ github.event.number }}
   cancel-in-progress: true
