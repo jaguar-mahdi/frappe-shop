@@ -370,3 +370,36 @@ git push -u origin docs/001-book-catalog-spec
 1. راجع الـ`PR`، وخصوصاً قسم `Assumptions` في `spec.md`، ثم ادمجه بـ`squash`.
 2. اختياري: `/speckit-clarify` لتأكيد الافتراضات.
 3. ثم `/speckit-plan` على فرع جديد، مثل `docs/001-book-catalog-plan`.
+
+---
+
+## 2026-11-21 — تثبيت `gh` وقاعدة دمج الـ`PR`
+
+### الأوامر
+
+```bash
+curl -s "https://api.github.com/repos/cli/cli/releases?per_page=6"        # قائمة الإصدارات
+curl -sSLO https://github.com/cli/cli/releases/download/v2.103.3/gh_2.103.3_linux_amd64.tar.gz
+curl -sSLO https://github.com/cli/cli/releases/download/v2.103.3/gh_2.103.3_checksums.txt
+grep "linux_amd64.tar.gz" gh_2.103.3_checksums.txt | sha256sum -c -
+tar -xzf gh_2.103.3_linux_amd64.tar.gz && install -m 0755 gh_2.103.3_linux_amd64/bin/gh ~/.local/bin/gh
+gh auth login        # نفّذه المسؤول بنفسه: GitHub.com، HTTPS، متصفح
+gh auth status
+gh api repos/jaguar-mahdi/frappe-shop/rulesets/27508557
+```
+
+- اخترنا `v2.103.3` وليس أحدث إصدار (`v2.105.0`، عمره 3 أيام)، لأن الإصدار الذي مضى عليه وقت أقل مخاطرة. وهو مثبَّت صراحة.
+- `sha256sum -c -`: يقارن بصمة الملف المنزَّل بالبصمة المنشورة. ظهر `OK`، أي أن الملف لم يتلف ولم يُعبث به.
+- `install -m 0755`: ينسخ الملف ويجعله قابلاً للتنفيذ. المجلد `~/.local/bin` داخل `PATH` ولا يحتاج `sudo`.
+- `gh auth status`: ظهر `Logged in ... jaguar-mahdi`، وصلاحيات الـ`token` هي `repo` و`workflow`.
+- `gh api .../rulesets/<id>`: أظهر القواعد الفعلية:
+  - `allowed_merge_methods: ["squash"]`.
+  - `required_status_checks` تشمل الفحوص الثلاثة.
+  - `strict_required_status_checks_policy: true`، أي يجب أن يكون الفرع محدَّثاً مع `main` قبل الدمج.
+  - `bypass_actors: []`، أي لا أحد يتجاوز القواعد.
+
+### القاعدة الجديدة
+
+صار مسموحاً لـClaude أن يفتح الـ`PR` ويدمجها بـ`gh pr merge --squash` فقط بعد نجاح كل الفحوص المطلوبة، دون `--admin`، ودون `push` إلى `main`.
+- `CLAUDE.md` لا يجوز أن يخالف الدستور، فعُدِّل الدستور إلى `1.1.0`.
+- الرفع `MINOR` لأن التوجيه في قسم `Development Workflow` تغيّر جوهرياً دون حذف أي مبدأ أو إعادة تعريفه.

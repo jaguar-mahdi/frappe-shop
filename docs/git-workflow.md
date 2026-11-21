@@ -15,6 +15,8 @@ Installed apps on the site: `frappe`, `erpnext`, `payments`, `webshop`, all on `
 ## Protection on `main` (GitHub Ruleset)
 
 - Changes reach `main` only through a pull request (PR).
+- Claude Code may open and merge PRs (`gh pr merge --squash`) only after all required checks pass;
+  never `--admin`, never a bypass. `strict` is on: a branch must be up to date with `main` before merge.
 - Squash merge only: all commits of a PR become one commit on `main`, titled with the PR title.
 - Linear history: no merge commits on `main`.
 - Required status checks: `Server` (`.github/workflows/ci.yml`),
@@ -32,7 +34,10 @@ git switch -c <type>/<short-kebab-description>
 git add <files>
 pre-commit run --all-files              # same check CI runs
 git commit -m "<type>: <summary>"
-git push -u origin <branch>             # then open the PR on GitHub
+git push -u origin <branch>
+gh pr create --base main --title "<type>: <summary>" --body-file <file>   # "## What / ## Why"
+gh pr checks <number> --watch           # wait for Server, Frappe Linter, Vulnerable Dependency Check
+gh pr merge <number> --squash --delete-branch   # only when every required check passed
 ```
 
 `pre-commit run --all-files` checks files that git tracks (committed or staged),

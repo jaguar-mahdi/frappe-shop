@@ -17,7 +17,9 @@ Standing rules for Claude Code in this repository. Details live in [docs/git-wor
 
 - Never commit or push to `main`. It is protected by a Ruleset: PR required, squash merge only,
   linear history, required checks `Server`, `Frappe Linter`, `Vulnerable Dependency Check`.
-- Workflow: branch → commits → push → the user opens and merges the PR. Do not open or merge PRs (`gh` is not installed).
+- Workflow: branch → commits → push → `gh pr create` → `gh pr checks --watch`.
+  Claude may open PRs and merge them with `gh pr merge --squash` only after ALL required checks pass.
+  Never bypass the Ruleset, never use `--admin`, never push to `main`.
 - Branch names: `<type>/<short-kebab-description>`.
   Spec Kit features (`specs/NNN-<short-name>/`) map to `<type>/NNN-<short-name>-<stage>`, e.g. `docs/001-book-catalog-spec`;
   Spec Kit's `git` extension is not installed, so create the branch by hand.

@@ -54,7 +54,9 @@ Rationale: a small scope is easier to build, test, review, and explain.
 - Work happens on a branch named `<type>/<short-kebab-description>`, never on `main`.
 - `pre-commit run --all-files` MUST pass before every push, matching CI.
 - `main` accepts squash merges only, with linear history. The Pull Request title becomes the commit on `main`.
-- The maintainer opens and merges Pull Requests. Product decisions (features, data fields, naming,
+- Pull Requests are opened by the maintainer or by Claude Code. Claude Code may merge a Pull Request
+  only with a squash merge after all required checks pass, and MUST NOT bypass the Ruleset (no admin
+  merge, no direct push to `main`). Product decisions (features, data fields, naming,
   UX, licensing, scope) belong to the maintainer.
 
 ## Governance
@@ -71,4 +73,4 @@ Rationale: a small scope is easier to build, test, review, and explain.
   and every Pull Request review MUST confirm compliance. Any exception MUST be justified in writing
   in the plan.
 
-**Version**: 1.0.0 | **Ratified**: 2026-11-21 | **Last Amended**: 2026-11-21
+**Version**: 1.1.0 | **Ratified**: 2026-11-21 | **Last Amended**: 2026-11-21
