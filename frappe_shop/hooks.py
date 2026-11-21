@@ -298,3 +298,5 @@ doc_events = {
 }
 
 update_website_context = ["frappe_shop.catalog.website.hide_online_payment"]
+
+before_tests = "frappe_shop.setup.testing.before_tests"
