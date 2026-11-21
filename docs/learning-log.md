@@ -353,4 +353,20 @@ git push -u origin docs/001-book-catalog-spec
 - كل `commit` يحمل جزءاً منطقياً واحداً، لأن `--` تحدّد المسارات.
 - نوع الـ`commit` هو `docs` لأن التغييرات كلها وثائق، بلا كود.
 
-(نتيجة الرفع مضافة أدناه.)
+**مخرجات الـ`commits`:**
+- `72fac9c docs: ratify project constitution v1.0.0` (ملف واحد).
+- `091ed91 docs: add book catalog specification (001)` (ملفان).
+- `0da9f92 docs: map Spec Kit branches in CLAUDE.md and update learning log` (ملفان).
+- `pre-commit` بعدها أعاد `exit=0`.
+
+**مخرجات `git push`:**
+- `* [new branch] docs/001-book-catalog-spec -> docs/001-book-catalog-spec`، والفرع مربوط بالبعيد بفضل `-u`.
+- رابط فتح الـ`PR`: `https://github.com/jaguar-mahdi/frappe-shop/pull/new/docs/001-book-catalog-spec`.
+
+بعدها سُجِّلت هذه النتائج بـ`git commit -m "docs: record push results in learning log"` ثم `git push`.
+
+### الخطوات التالية
+
+1. راجع الـ`PR`، وخصوصاً قسم `Assumptions` في `spec.md`، ثم ادمجه بـ`squash`.
+2. اختياري: `/speckit-clarify` لتأكيد الافتراضات.
+3. ثم `/speckit-plan` على فرع جديد، مثل `docs/001-book-catalog-plan`.
