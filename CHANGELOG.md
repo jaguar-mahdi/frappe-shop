@@ -8,6 +8,16 @@ Entries are built from the Conventional Commits on `main` (see [docs/releasing.m
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-21
+
+### Fixed
+
+- Navbar: removed the "Admin" link (Switch to Desk is in the avatar menu) and the "Cart" text link (the
+  cart icon with its count stays). ([#21])
+- IQD prices show without decimals (`15,000`) on the product list, book page, cart, and order, through
+  currency precision settings. ([#21])
+- Sample books use the unit "Book" ("/ Book"). Existing sample books move to it when it is safe. ([#21])
+
 ## [0.2.0] - 2026-11-21
 
 Storefront polish (`specs/002-storefront-polish`).
@@ -64,7 +74,8 @@ First release of the store: the Book catalog (`specs/001-book-catalog`).
 
 - CI branch name in the README. ([#1])
 
-[Unreleased]: https://github.com/jaguar-mahdi/frappe-shop/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jaguar-mahdi/frappe-shop/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/jaguar-mahdi/frappe-shop/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/jaguar-mahdi/frappe-shop/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jaguar-mahdi/frappe-shop/releases/tag/v0.1.0
 [#1]: https://github.com/jaguar-mahdi/frappe-shop/pull/1
@@ -77,3 +88,4 @@ First release of the store: the Book catalog (`specs/001-book-catalog`).
 [#17]: https://github.com/jaguar-mahdi/frappe-shop/pull/17
 [#18]: https://github.com/jaguar-mahdi/frappe-shop/pull/18
 [#19]: https://github.com/jaguar-mahdi/frappe-shop/pull/19
+[#21]: https://github.com/jaguar-mahdi/frappe-shop/pull/21

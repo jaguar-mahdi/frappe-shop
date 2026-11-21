@@ -980,3 +980,9 @@ frappe_shop/catalog/covers.py
 
 - `AssertionError: '' != '0'`: في `CI` لم تكن هناك `Webshop Settings.price_list`، لأن كل `class` اختبار يتراجع (`rollback`) عن بياناته، و`TestPriceFormat` لم يستدعِ `setup_store()`. محلياً نجح الاختبار لأن الإعدادات محفوظة دائماً في الموقع.
 - **الحل:** `setUpClass` يستدعي `setup_store()`. الدرس: الاختبار يجب ألا يعتمد على حالة موقع التطوير.
+
+### خطأ أثناء تجهيز `0.2.1`
+
+- `fatal: ambiguous argument 'v0.2.0..main': unknown revision`: الوسم أُنشئ على GitHub (`gh release create`)، ولم يُنزَّل محلياً.
+- **الحل:** `git fetch --tags origin`. لم يُنفَّذ شيء بعد الخطأ بسبب `&&`، وتأكدنا أن `main` نظيف.
+- `v0.2.0..main` فيه `fix` فقط، فالرفع `PATCH`: `0.2.1`.
