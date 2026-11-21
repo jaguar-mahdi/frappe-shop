@@ -718,3 +718,51 @@ gh pr create --title "chore(release): 0.1.0" ...
 - طلبتُ تثبيت `actionlint` لفحص الـ`workflow`، فرفضه نظام الصلاحيات. تحققنا من صحة الـ`YAML` بـ`yaml.safe_load` فقط.
 - `pre-commit` لا يفحص `.github/` بسبب `exclude: 'node_modules|.git'`.
 - هذا الـ`workflow` لا يعمل داخل `PR`، بل عند نشر الإصدار فقط. لذلك يُختبر فعلياً في الخطوة التالية (`gh release create`).
+
+---
+
+## 2026-11-21 — إصدار `v0.1.0`: `GitHub Release` ثم صورة `GHCR` ثم `deployment` إلى `staging`
+
+### الأوامر ومعنى مخرجاتها
+
+```bash
+gh pr merge 14 --squash --delete-branch
+git switch main && git pull --ff-only origin main
+gh release create v0.1.0 --target main --generate-notes --title "v0.1.0"
+gh run list --workflow release.yml --limit 1
+gh run watch 44905058807 --exit-status
+gh api repos/jaguar-mahdi/frappe-shop/deployments
+gh api repos/jaguar-mahdi/frappe-shop/deployments/<id>/statuses
+gh api repos/jaguar-mahdi/frappe-shop/environments
+```
+
+- `gh release create`:
+  - أنشأ الوسم `v0.1.0` على `main` (`dcc2d11`)، والإصدار `https://github.com/jaguar-mahdi/frappe-shop/releases/tag/v0.1.0`.
+  - `--generate-notes` كتب قائمة الـ`PRs`.
+  - الإصدار أُنشئ بـ`token` المستخدم (`gh`) لا بـ`GITHUB_TOKEN`، ولذلك أطلق حدث `release: published`. الأحداث التي ينشئها `GITHUB_TOKEN` لا تُطلق `workflows` أخرى.
+- `gh run watch --exit-status`: ينتظر التشغيل ويعيد رمز خروج غير صفري إذا فشل. **النتيجة:** `success` في نحو 7 دقائق.
+- سجل البناء أكّد التطبيقات: `payments==16.0.1` و`erpnext==16.60.0` و`webshop==0.0.1` و`frappe-shop==0.1.0`. البناء سريع لأن `layered` يبدأ من الصورتين الجاهزتين `frappe/build` و`frappe/base`.
+- `deployments`: `environment: staging` و`ref: v0.1.0` و`state: success`. أنشأ GitHub البيئة `staging` تلقائياً وبلا قواعد حماية (`protection_rules: 0`).
+
+### خطأ: `HTTP 403` عند فحص الحزمة
+
+```text
+gh: You need at least read:packages scope to get a package. (HTTP 403)
+```
+
+- **الجذر:** صلاحيات `token` الخاص بـ`gh` هي `repo` و`workflow` و`gist` و`read:org`، وليس بينها `read:packages`.
+- **الحل البديل دون تسجيل دخول جديد:** سجل البناء، ثم `Registry API` مباشرة:
+
+```bash
+T=$(curl -s "https://ghcr.io/token?scope=repository:jaguar-mahdi/frappe-shop:pull" | python3 -c "import json,sys;print(json.load(sys.stdin)['token'])")
+curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $T" -H 'Accept: application/vnd.oci.image.index.v1+json' https://ghcr.io/v2/jaguar-mahdi/frappe-shop/manifests/0.1.0
+```
+
+  - النتائج: `0.1.0` أعاد `200`، و`sha-dcc2d11e…` أعاد `200`، و`latest` أعاد `404`، وهذا مقصود.
+  - الـ`token` هنا مجهول (`anonymous`)، فنجاح السحب يعني أن الحزمة حالياً قابلة للسحب علناً. ما زال هذا قراراً مفتوحاً للمسؤول.
+  - لفحصها بـ`gh api` لاحقاً: `gh auth refresh -s read:packages`.
+
+### قرارات مفتوحة للمسؤول
+
+1. ظهور الحزمة (`visibility`): الحالة الآن قابلة للسحب العلني، وتُغيَّر من صفحة الحزمة ← `Package settings`.
+2. موافقة يدوية (`required reviewers`) على `staging`: الآن لا توجد، وتُضاف من `Settings` ← `Environments` ← `staging`.
