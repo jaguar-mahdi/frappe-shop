@@ -1,50 +1,74 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# Frappe Shop Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Extend, Never Modify
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- Source code of `frappe`, `erpnext`, `payments` and `webshop` MUST NOT be edited.
+- Every customization MUST live in the `frappe_shop` app and use extension mechanisms only:
+  Custom Fields exported as fixtures, hooks, and overrides.
+- A change that cannot be made by extension MUST be raised with the maintainer before any work starts.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+Rationale: upstream apps stay upgradeable, and every customization is versioned in one repository.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### II. Pull Requests, Green CI, Conventional Commits, Semantic Versioning
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+- Every change MUST reach `main` through a Pull Request. Direct pushes to `main` are not allowed.
+- A Pull Request MUST NOT be merged unless the required checks pass: `Server`, `Frappe Linter`,
+  and `Vulnerable Dependency Check`.
+- Commit messages and Pull Request titles MUST follow Conventional Commits.
+- Releases of the app MUST follow Semantic Versioning (`MAJOR.MINOR.PATCH`).
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Rationale: every change is reviewed and checked the same way, and the history explains itself.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### III. Every Feature Ships With a Test
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+- Every feature MUST include at least one automated test that runs in CI.
+- A feature without a passing automated test is not done.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+Rationale: tests prove a feature works and keep it working after later changes.
+
+### IV. Security
+
+- Secrets MUST NOT be committed. This includes passwords, API keys, tokens, and the content of
+  `site_config.json`. The repository is public.
+- Dependency and security scans (`Frappe Linter` Semgrep rules and `Vulnerable Dependency Check`)
+  MUST stay enabled and required. They MUST NOT be removed, skipped, or made optional.
+
+Rationale: a public repository exposes anything committed, and scans catch known risks early.
+
+### V. Simplicity
+
+- Each change MUST use the smallest solution that meets its goal.
+- The store MUST NOT integrate a real payment gateway.
+
+Rationale: a small scope is easier to build, test, review, and explain.
+
+## Platform Constraints
+
+- Platform: Frappe Framework `version-16` with `erpnext`, `payments` and `webshop` on `version-16`.
+- All project code lives in the `frappe_shop` app repository.
+
+## Development Workflow
+
+- Work happens on a branch named `<type>/<short-kebab-description>`, never on `main`.
+- `pre-commit run --all-files` MUST pass before every push, matching CI.
+- `main` accepts squash merges only, with linear history. The Pull Request title becomes the commit on `main`.
+- The maintainer opens and merges Pull Requests. Product decisions (features, data fields, naming,
+  UX, licensing, scope) belong to the maintainer.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+- This constitution overrides other practices in this repository. `CLAUDE.md` and
+  `docs/git-workflow.md` give day-to-day guidance and MUST NOT contradict it.
+- Amendments are made through a Pull Request that the maintainer approves and merges. The Pull
+  Request MUST state the version change and the reason for it.
+- Versioning policy (Semantic Versioning of this document):
+  - MAJOR: a principle is removed or redefined in a backward-incompatible way.
+  - MINOR: a principle or section is added, or guidance is materially expanded.
+  - PATCH: clarifications, wording, and typo fixes with no change in meaning.
+- Compliance: every implementation plan MUST include a Constitution Check against Principles I–V,
+  and every Pull Request review MUST confirm compliance. Any exception MUST be justified in writing
+  in the plan.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-11-21 | **Last Amended**: 2026-11-21
