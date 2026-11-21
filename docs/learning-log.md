@@ -238,3 +238,135 @@ git push
 1. افتح الـ`PR` من الرابط أعلاه، وانتظر نجاح `Server` و`Frappe Linter` و`Vulnerable Dependency Check`، ثم ادمج بـ`squash`.
 2. بعد الدمج: `git switch main && git pull --ff-only origin main`.
 3. في جلسة `Claude Code` جديدة: ابدأ بـ`/speckit-constitution`.
+
+---
+
+## 2026-11-21 — `SDD` المرحلة 1: `constitution` و`spec` لميزة "Book catalog"
+
+### ما الذي أُنجز ولماذا
+
+- كُتب "دستور" المشروع `.specify/memory/constitution.md` بالإصدار `1.0.0`، وفيه المبادئ الخمسة التي قرّرها المسؤول عن المشروع (`maintainer`) نصاً، دون إضافة مبادئ منتج جديدة. القسمان `Platform Constraints` و`Development Workflow` ينقلان قرارات موجودة أصلاً في `CLAUDE.md`.
+- كُتبت مواصفة الميزة الأولى `specs/001-book-catalog/spec.md` (إصدار المتجر `0.1.0`) وقائمة الجودة `checklists/requirements.md`.
+- لم يُكتب `plan` ولا `tasks` ولا كود.
+- أُضيف سطر إلى `CLAUDE.md` يشرح كيف تُطابَق مجلدات `Spec Kit` مع تسمية الفروع.
+
+`SDD` = `Spec-Driven Development`. و`SemVer` = `Semantic Versioning`، أي ترقيم الإصدارات بصيغة `MAJOR.MINOR.PATCH`.
+
+### الأوامر بالتفصيل
+
+#### 1) الدخول والتحديث
+
+```bash
+cd /workspace/development/frappe-bench/apps/frappe_shop && pwd && git status -sb | head -3 && git fetch origin --prune
+git log --oneline -5 origin/main; git branch -a
+git pull --ff-only origin main
+```
+
+- `git status -sb`: حالة مختصرة (`-s` = `short`) مع سطر الفرع ومقارنته بالبعيد (`-b` = `branch`).
+- `| head -3`: اعرض أول 3 أسطر فقط.
+
+**المخرجات:** كنا على `main`، و`[deleted] ... origin/chore/claude-and-spec-kit` يعني أن الـ`PR` السابق دُمج وحُذف فرعه. ظهر في `origin/main` الـ`commit` `chore: add CLAUDE.md, learning log and GitHub Spec Kit scaffolding (#9)`، وهو `commit` واحد لأن الدمج تم بـ`squash`. أما `git pull --ff-only` فأعاد `Already up to date`.
+
+#### 2) قراءة ملفات `Spec Kit`
+
+```bash
+cat CLAUDE.md .specify/memory/constitution.md .claude/skills/speckit-constitution/SKILL.md .claude/skills/speckit-specify/SKILL.md
+ls .specify; ls .specify/extensions*
+sed -n 1,80p .specify/scripts/bash/create-new-feature.sh
+```
+
+- `sed -n 1,80p <file>`: اطبع الأسطر من 1 إلى 80 فقط. `-n` تمنع الطباعة التلقائية، و`p` تعني `print`.
+
+**المخرجات ومعناها:** لا يوجد `.specify/extensions.yml`، أي أن إضافة (`extension`) الـ`git` غير مثبَّتة. ولذلك لا يوجد `hook` من نوع `before_specify` ينشئ فرعاً، ومهارة `speckit-specify` تنشئ مجلد `specs/` فقط. **الخلاصة:** `Spec Kit` لن ينشئ فرعاً باسم خاص به، فأنشأنا الفرع يدوياً بالاسم الصحيح من البداية، ولم نحتج إلى إعادة تسمية.
+
+#### 3) إنشاء الفرع وتحليل القالب
+
+```bash
+git switch -c docs/001-book-catalog-spec
+.specify/scripts/bash/resolve-template.sh constitution-template --json
+grep -nE "git (checkout|switch|branch)" .specify/scripts/bash/*.sh
+cat frappe_shop/__init__.py
+```
+
+- `resolve-template.sh constitution-template --json`: خطوة تطلبها المهارة. تدمج طبقات القوالب (`overrides` و`presets` و`extensions`) وتعيد القالب النهائي بصيغة `JSON`.
+- `grep -nE ...`: يبحث هل تنشئ سكربتات `Spec Kit` فروعاً بنفسها.
+- `frappe_shop/__init__.py`: فيه `__version__` الخاص بالتطبيق.
+
+**المخرجات:** `exit=0` والقالب نفسه الموجود على القرص، أي لا توجد طبقات إضافية. `grep` لم يجد شيئاً، أي أن السكربتات لا تمسّ الفروع. والتطبيق حالياً `__version__ = "0.0.1"`. الانتقال إلى `0.1.0` يحدث عند إصدار الميزة، وليس في هذه المرحلة.
+
+#### 4) كتابة `constitution` والتحقق
+
+```bash
+grep -nE "\[[A-Z_]+\]" .specify/memory/constitution.md
+```
+
+يبحث عن أي عنصر نائب بقي بصيغة `[ALL_CAPS]`. **المخرجات:** لا شيء مع `exit=1`. هنا `exit=1` يعني "لم يُعثر على تطابق"، وهي النتيجة المطلوبة.
+
+- لم يُترك تقرير `Sync Impact Report` في الملف، لأن المهارة تقول إنه مسودة مؤقتة تُحذف قبل الـ`commit`. ملخصه: الإصدار من `template` إلى `1.0.0`، وأُضيفت المبادئ `I`–`V` والأقسام `Platform Constraints` و`Development Workflow` و`Governance`، ولا يوجد `TODO`.
+
+#### 5) أسئلة التوضيح قبل كتابة `spec`
+
+طُرحت 7 أسئلة في جولتين، لأن تفاصيل المنتج قرارك وليست قراري. الإجابات:
+- البحث عن الكاتب: `filter` و`search` معاً.
+- كاتب واحد لكل كتاب.
+- الحقول الخمسة كلها إلزامية.
+- `ISBN` فريد بلا فحص للصيغة.
+- اللغة نص حر (`free text`).
+- كتب العرض كلاسيكيات من الملكية العامة (`public domain`)، مع سعر ومخزون.
+
+سُجِّلت في قسم `Clarifications` داخل `spec.md`.
+
+#### 6) إنشاء مجلد الميزة
+
+```bash
+mkdir -p specs/001-book-catalog/checklists
+printf '{\n  "feature_directory": "specs/001-book-catalog"\n}\n' > .specify/feature.json
+git check-ignore -v .specify/feature.json
+```
+
+- `mkdir -p`: ينشئ المجلد ومجلداته الأب إن لم تكن موجودة، ولا يعطي خطأً إن كان موجوداً.
+- `.specify/feature.json`: مؤشر محلي تستخدمه `/speckit-plan` و`/speckit-tasks` لمعرفة الميزة الحالية.
+- `git check-ignore -v`: **المخرجات** `.specify/.gitignore:6:feature.json`، أي أن الملف متجاهَل عن قصد لأنه حالة خاصة بالجهاز، ولن يُرفع.
+
+#### 7) التجهيز والفحص
+
+```bash
+ls .specify/extensions.yml
+git add .specify/memory/constitution.md specs CLAUDE.md
+pre-commit run --all-files
+```
+
+- `ls .specify/extensions.yml` أعاد `No such file or directory`. هذا متوقع، ويعني أنه لا توجد `post-hooks` بعد `specify`.
+- `pre-commit`: كل الخطافات `Passed` و`exit=0`.
+
+#### 8) الـ`commits` والرفع
+
+```bash
+git commit -m "docs: ratify project constitution v1.0.0" -- .specify/memory/constitution.md
+git commit -m "docs: add book catalog specification (001)" -- specs/
+git add docs/learning-log.md
+git commit -m "docs: map Spec Kit branches in CLAUDE.md and update learning log"
+pre-commit run --all-files
+git push -u origin docs/001-book-catalog-spec
+```
+
+- كل `commit` يحمل جزءاً منطقياً واحداً، لأن `--` تحدّد المسارات.
+- نوع الـ`commit` هو `docs` لأن التغييرات كلها وثائق، بلا كود.
+
+**مخرجات الـ`commits`:**
+- `72fac9c docs: ratify project constitution v1.0.0` (ملف واحد).
+- `091ed91 docs: add book catalog specification (001)` (ملفان).
+- `0da9f92 docs: map Spec Kit branches in CLAUDE.md and update learning log` (ملفان).
+- `pre-commit` بعدها أعاد `exit=0`.
+
+**مخرجات `git push`:**
+- `* [new branch] docs/001-book-catalog-spec -> docs/001-book-catalog-spec`، والفرع مربوط بالبعيد بفضل `-u`.
+- رابط فتح الـ`PR`: `https://github.com/jaguar-mahdi/frappe-shop/pull/new/docs/001-book-catalog-spec`.
+
+بعدها سُجِّلت هذه النتائج بـ`git commit -m "docs: record push results in learning log"` ثم `git push`.
+
+### الخطوات التالية
+
+1. راجع الـ`PR`، وخصوصاً قسم `Assumptions` في `spec.md`، ثم ادمجه بـ`squash`.
+2. اختياري: `/speckit-clarify` لتأكيد الافتراضات.
+3. ثم `/speckit-plan` على فرع جديد، مثل `docs/001-book-catalog-plan`.

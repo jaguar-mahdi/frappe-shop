@@ -19,6 +19,8 @@ Standing rules for Claude Code in this repository. Details live in [docs/git-wor
   linear history, required checks `Server`, `Frappe Linter`, `Vulnerable Dependency Check`.
 - Workflow: branch → commits → push → the user opens and merges the PR. Do not open or merge PRs (`gh` is not installed).
 - Branch names: `<type>/<short-kebab-description>`.
+  Spec Kit features (`specs/NNN-<short-name>/`) map to `<type>/NNN-<short-name>-<stage>`, e.g. `docs/001-book-catalog-spec`;
+  Spec Kit's `git` extension is not installed, so create the branch by hand.
 - Commit messages and PR titles follow Conventional Commits
   (`feat`, `fix`, `docs`, `style`, `refactor`, `test`, `ci`, `chore`, `build`).
   The PR title becomes the squash commit on `main`.
