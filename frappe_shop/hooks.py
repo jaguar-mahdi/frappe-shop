@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext", "webshop"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -278,3 +278,25 @@ app_license = "mit"
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
+
+# Book Catalog (specs/001-book-catalog)
+# -------------------------------------
+
+fixtures = [
+	{"dt": "Custom Field", "filters": [["module", "=", "Frappe Shop"]]},
+	{"dt": "Property Setter", "filters": [["module", "=", "Frappe Shop"]]},
+]
+
+doc_events = {
+	"Item": {
+		"validate": "frappe_shop.catalog.books.validate_book_item",
+		"on_update": "frappe_shop.catalog.books.sync_website_item",
+	},
+	"Website Item": {
+		"validate": "frappe_shop.catalog.books.set_book_details_on_website_item",
+	},
+}
+
+update_website_context = ["frappe_shop.catalog.website.hide_online_payment"]
+
+before_tests = "frappe_shop.setup.testing.before_tests"
