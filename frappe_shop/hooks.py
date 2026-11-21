@@ -297,6 +297,12 @@ doc_events = {
 	},
 }
 
-update_website_context = ["frappe_shop.catalog.website.hide_online_payment"]
+update_website_context = [
+	"frappe_shop.catalog.website.hide_online_payment",
+	"frappe_shop.catalog.website.add_storefront_navigation",
+]
+
+# Storefront polish (specs/002-storefront-polish)
+web_include_js = ["/assets/frappe_shop/js/storefront.js"]
 
 before_tests = "frappe_shop.setup.testing.before_tests"

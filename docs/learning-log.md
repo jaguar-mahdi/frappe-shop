@@ -881,3 +881,51 @@ CodeQL detected code written in JavaScript/TypeScript but could not process any 
 
 - `pkill -f "<pattern>"` قد يطابق سطر أوامر الـ`shell` نفسه فيقتله (رمز الخروج `144`). الأفضل `kill <pid>` بعد التحقق.
 - `HTTP 500` بصيغة `HTML` بدل `JSON` في `API` إشارة إلى أن معالج الأخطاء نفسه فشل.
+
+---
+
+## 2026-11-21 — الميزة 002 "Storefront polish"
+
+### القرارات
+
+قرارات المسؤول (المنتج):
+- اللون `#7A2E3A`، والخط `Inter`.
+- الشعار (`tagline`): "Classic books, delivered to your door.".
+- 4 كتب في الصفحة الرئيسية، ولون لكل مؤلف من لوحة ألوان دافئة هادئة.
+- نصوص الحالات الفارغة والتأكيد كما اقترحتها.
+
+القرارات التقنية: كلها إعدادات أو صفحات داخل `frappe_shop`:
+
+| الحاجة | الطريقة |
+|---|---|
+| اللون والخط | `Website Theme` مخصّص (`custom: 1`) |
+| شريط التنقل، التذييل، الصفحة الرئيسية | `Website Settings` (`top_bar_items`، `copyright`، `home_page`) |
+| رابط `Admin` للموظفين فقط | `update_website_context` |
+| إعادة صياغة نصوص `webshop` | سجلات `Translation` بالإنجليزية |
+| زر "Browse books" | ملف `storefront.js` صغير عبر `web_include_js` |
+| رسالة التأكيد | صفحة `order.html` في `frappe_shop` تمدّد (`extends`) قالب `webshop` عبر `PrefixLoader` ولا تنسخه |
+
+### الأخطاء وأسبابها وحلولها
+
+1. **الزر أسود رغم `primary_color`.**
+   - المحاولة الأولى: `--btn-primary: #{$primary}` لم تنفع، وبقي الناتج `#171717`.
+   - **الجذر:** في `v16` الأزرار تستخدم متغير `CSS` اسمه `--btn-primary` لا `$primary`. والأهم أن `website_theme_template.scss` يكتب `$primary` **قبل** `@import "frappe/public/scss/website.bundle"`، وهذا الملف يعيد تعيين `$primary` فيمسح قيمتنا.
+   - **الحل:** وضع اللون كقيمة صريحة داخل `custom_scss`، لأنه يُترجَم بعد الـ`imports`.
+   - **التحقق:** موضع قيمتنا في ملف `CSS` بعد موضع قيمة Frappe، فقيمتنا هي التي تُطبَّق.
+2. **`LinkValidationError: Could not find Website Theme: _Test Owner Theme`.** الخطأ في الاختبار: حفظ `Website Settings` يتحقق من الـ`Link`، فأنشأنا الثيم التجريبي داخل الاختبار.
+3. **`Playwright` لم يعمل:** `libatk-bridge-2.0.so.0: cannot open shared object file`.
+   - **الجذر:** المتصفح نُزِّل، لكن مكتبات النظام التي يحتاجها غير موجودة في الحاوية.
+   - **الحل:** `sudo playwright install-deps chromium` (يستخدم `apt`). بعده لم تبقَ مكتبات ناقصة (`not found` = 0 في `ldd`).
+   - الإصدار `playwright==1.64.1` مثبَّت بـ`uv tool install`، وعمره نحو شهر، وليس الأحدث.
+4. **3 مؤلفين بنفس اللون.** توزيع 7 مؤلفين على 7 ألوان بالـ`hash` يسبب تصادمات. الحل: مؤلفو البيانات التجريبية يأخذون ألواناً مختلفة بترتيبهم، والـ`hash` يبقى لأي مؤلف آخر. أضفنا اختباراً يتحقق من 7 ألوان مختلفة.
+5. **`HTTP 500` عند قراءة `theme_scss` بـ`bench execute`:** المخرج نص عادي وليس `JSON`، فقرأناه بسكربت مباشرة.
+
+### التحقق
+
+- `Ran 33 tests ... OK`.
+- `Place Order` بنقرة حقيقية في `Chromium`: الانتقال إلى `/orders/SAL-ORD-...` خلال ثانية واحدة، مع رسالة التأكيد، وبلا زر `Pay`.
+- الصور في `docs/screenshots/`:
+  - `home.png`
+  - `product-list.png`
+  - `book-page.png`
+  - `order-confirmation.png`

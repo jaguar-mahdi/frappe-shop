@@ -11,6 +11,7 @@ import frappe
 from frappe import _
 
 from frappe_shop.catalog.books import BOOK_ITEM_GROUP
+from frappe_shop.catalog.covers import make_cover_svg
 from frappe_shop.setup.store import resolve_company, setup_store
 
 SAMPLE_PRICE = 15000
@@ -32,6 +33,7 @@ SAMPLE_BOOKS = (
 	("Dracula", "Bram Stoker", 418),
 	("The Adventures of Sherlock Holmes", "Arthur Conan Doyle", 307),
 )
+SAMPLE_AUTHORS = tuple(dict.fromkeys(author for _title, author, _pages in SAMPLE_BOOKS))
 
 
 def get_sample_books() -> list[dict]:
@@ -63,6 +65,7 @@ def create_sample_books(company: str | None = None) -> dict:
 		ensure_price(book["item_code"], settings.price_list)
 		ensure_website_item(book["item_code"], warehouse)
 		ensure_opening_stock(book["item_code"], settings.company, warehouse)
+		ensure_cover(book["item_code"], book["item_name"], book["book_author"])
 		result["created" if created else "existing"].append(book["item_code"])
 
 	return result
@@ -156,3 +159,30 @@ def ensure_opening_stock(item_code: str, company: str, warehouse: str) -> None:
 	entry.flags.ignore_permissions = True
 	entry.insert()
 	entry.submit()
+
+
+def ensure_cover(item_code: str, title: str, author: str) -> str:
+	"""Attach a generated SVG cover (specs/002-storefront-polish, FR-004) unless the book has an image."""
+	image = frappe.db.get_value("Item", item_code, "image")
+	if not image:
+		file_doc = frappe.get_doc(
+			{
+				"doctype": "File",
+				"file_name": f"{item_code.lower()}-cover.svg",
+				"content": make_cover_svg(title, author, SAMPLE_AUTHORS),
+				"is_private": 0,
+				"attached_to_doctype": "Item",
+				"attached_to_name": item_code,
+				"attached_to_field": "image",
+			}
+		).insert(ignore_permissions=True)
+		image = file_doc.file_url
+		frappe.db.set_value("Item", item_code, "image", image)
+
+	website_item = frappe.db.get_value(
+		"Website Item", {"item_code": item_code}, ["name", "website_image"], as_dict=True
+	)
+	if website_item and not website_item.website_image:
+		# PIL cannot thumbnail SVG, so the cover itself is the thumbnail
+		frappe.db.set_value("Website Item", website_item.name, {"website_image": image, "thumbnail": image})
+	return image

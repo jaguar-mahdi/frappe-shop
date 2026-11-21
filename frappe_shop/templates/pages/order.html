@@ -1,0 +1,10 @@
+{% extends "webshop/templates/pages/order.html" %}
+
+{% block page_content %}
+{% if show_order_confirmation %}
+<div class="alert alert-success mb-4" role="status" id="order-confirmation">
+	{{ _("Thank you! Your order {0} is placed. You will pay in cash on delivery.").format(doc.name) }}
+</div>
+{% endif %}
+{{ super() }}
+{% endblock %}
