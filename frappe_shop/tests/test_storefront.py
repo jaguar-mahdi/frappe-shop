@@ -4,8 +4,14 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from frappe_shop.catalog.covers import COVER_PALETTE, author_colour, make_cover_svg
-from frappe_shop.catalog.website import ADMIN_LINK, add_storefront_navigation
-from frappe_shop.demo.sample_books import SAMPLE_AUTHORS, create_sample_books, ensure_cover, get_sample_books
+from frappe_shop.catalog.website import add_storefront_navigation
+from frappe_shop.demo.sample_books import (
+	SAMPLE_AUTHORS,
+	SAMPLE_UOM,
+	create_sample_books,
+	ensure_cover,
+	get_sample_books,
+)
 from frappe_shop.setup.store import (
 	HOME_PAGE,
 	NAVBAR_ITEMS,
@@ -14,6 +20,7 @@ from frappe_shop.setup.store import (
 	THEME_FONT,
 	THEME_NAME,
 	THEME_PRIMARY_COLOUR,
+	ensure_price_format,
 	setup_store,
 )
 from frappe_shop.templates.pages.order import show_order_confirmation
@@ -61,17 +68,15 @@ class TestStorefrontSetup(IntegrationTestCase):
 
 
 class TestStorefrontPages(IntegrationTestCase):
-	def test_admin_link_only_for_system_users(self):
-		"""FR-002."""
+	def test_no_admin_or_cart_text_link_in_navbar(self):
+		"""Fix: no Admin link (Desk is in the avatar menu) and no "Cart" text link (cart icon stays)."""
 		context = frappe._dict(top_bar_items=[frappe._dict(label="Books", url="/all-products")])
-
-		self.assertEqual(frappe.get_cached_value("User", "Administrator", "user_type"), "System User")
-		values = add_storefront_navigation(context)
-		self.assertIn(ADMIN_LINK["url"], [item.get("url") for item in values["top_bar_items"]])
-
-		frappe.set_user("Guest")
-		self.addCleanup(frappe.set_user, "Administrator")
 		self.assertIsNone(add_storefront_navigation(context))
+
+		setup_store()
+		items = [(row.label, row.url) for row in frappe.get_single("Website Settings").top_bar_items]
+		self.assertNotIn(("Cart", "/cart"), items)
+		self.assertNotIn("/app", [url for _label, url in items])
 
 	def test_orders_empty_message(self):
 		values = add_storefront_navigation(frappe._dict(doctype="Sales Order"))
@@ -87,6 +92,24 @@ class TestStorefrontPages(IntegrationTestCase):
 		self.assertFalse(show_order_confirmation(frappe._dict(placed, status="Cancelled")))
 		self.assertFalse(show_order_confirmation(frappe._dict(placed, order_type="Sales")))
 		self.assertFalse(show_order_confirmation(None))
+
+
+class TestPriceFormat(IntegrationTestCase):
+	def test_iqd_prices_have_no_decimals(self):
+		"""Fix: 15,000 not 15,000.000 when the store sells in IQD."""
+		from frappe.utils import fmt_money
+
+		price_list = frappe.db.get_single_value("Webshop Settings", "price_list")
+		original = frappe.db.get_value("Price List", price_list, "currency")
+		self.addCleanup(frappe.db.set_value, "Price List", price_list, "currency", original)
+		frappe.db.set_value("Price List", price_list, "currency", "IQD")
+		if frappe.db.get_default("currency_precision") not in (None, "", "0"):
+			self.skipTest("the owner has chosen a currency precision")
+
+		self.assertEqual(ensure_price_format(), "0")
+		formatted = fmt_money(15000, currency="IQD")
+		self.assertIn("15,000", formatted)
+		self.assertNotIn("15,000.", formatted)
 
 
 class TestCovers(IntegrationTestCase):
@@ -127,6 +150,21 @@ class TestCovers(IntegrationTestCase):
 			image = frappe.db.get_value("Item", code, "image")
 			self.assertTrue(image and image.endswith(".svg"), code)
 			self.assertEqual(frappe.db.get_value("Website Item", {"item_code": code}, "website_image"), image)
+
+	def test_sample_books_use_the_book_unit(self):
+		"""Fix: the book page shows "/ Book"; existing books are moved to the unit too."""
+		for book in get_sample_books():
+			code = book["item_code"]
+			if frappe.db.get_value("Item", code, "stock_uom") == SAMPLE_UOM:
+				continue
+			# a book may stay on its old unit only when real orders or stock movements exist for it
+			reserved = frappe.db.exists("Bin", {"item_code": code, "reserved_qty": [">", 0]})
+			other = frappe.db.exists(
+				"Stock Ledger Entry",
+				{"item_code": code, "is_cancelled": 0, "voucher_type": ["!=", "Stock Entry"]},
+			)
+			self.assertTrue(reserved or other, f"{code} should have moved to {SAMPLE_UOM}")
+		self.assertTrue(frappe.db.get_value("UOM", SAMPLE_UOM, "must_be_whole_number"))
 
 	def test_home_page_latest_books(self):
 		"""FR-001."""

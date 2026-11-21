@@ -18,7 +18,7 @@ SAMPLE_PRICE = 15000
 SAMPLE_STOCK_QTY = 20
 SAMPLE_PUBLISHER = "Frappe Books Demo Press"
 SAMPLE_LANGUAGE = "English"
-SAMPLE_UOM = "Nos"
+SAMPLE_UOM = "Book"
 
 # (title, author, approximate number of pages)
 SAMPLE_BOOKS = (
@@ -64,6 +64,7 @@ def create_sample_books(company: str | None = None) -> dict:
 		created = ensure_item(book)
 		ensure_price(book["item_code"], settings.price_list)
 		ensure_website_item(book["item_code"], warehouse)
+		ensure_sample_uom(book["item_code"])
 		ensure_opening_stock(book["item_code"], settings.company, warehouse)
 		ensure_cover(book["item_code"], book["item_name"], book["book_author"])
 		result["created" if created else "existing"].append(book["item_code"])
@@ -92,10 +93,7 @@ def ensure_item(book: dict) -> bool:
 		"Item", {"book_isbn": book["book_isbn"]}
 	):
 		return False
-	if not frappe.db.exists("UOM", SAMPLE_UOM):
-		frappe.get_doc({"doctype": "UOM", "uom_name": SAMPLE_UOM, "must_be_whole_number": 1}).insert(
-			ignore_permissions=True
-		)
+	ensure_uom()
 	frappe.get_doc(
 		{
 			"doctype": "Item",
@@ -186,3 +184,53 @@ def ensure_cover(item_code: str, title: str, author: str) -> str:
 		# PIL cannot thumbnail SVG, so the cover itself is the thumbnail
 		frappe.db.set_value("Website Item", website_item.name, {"website_image": image, "thumbnail": image})
 	return image
+
+
+def ensure_uom() -> None:
+	if not frappe.db.exists("UOM", SAMPLE_UOM):
+		frappe.get_doc({"doctype": "UOM", "uom_name": SAMPLE_UOM, "must_be_whole_number": 1}).insert(
+			ignore_permissions=True
+		)
+
+
+def ensure_sample_uom(item_code: str) -> bool:
+	"""Move an existing sample book to the "Book" unit. Return True if it changed.
+
+	ERPNext forbids changing the stock UOM once stock exists ("cancel the linked documents or create a new
+	Item"). So this only proceeds when the book's only stock movements are its own sample opening receipts
+	and nothing is reserved or ordered: those receipts are cancelled, the unit changes, and the caller
+	re-creates the opening stock in the new unit. Anything else is left untouched.
+	"""
+	if frappe.db.get_value("Item", item_code, "stock_uom") == SAMPLE_UOM:
+		return False
+
+	vouchers = frappe.get_all(
+		"Stock Ledger Entry",
+		filters={"item_code": item_code, "is_cancelled": 0},
+		fields=["voucher_type", "voucher_no"],
+		distinct=True,
+	)
+	sample_codes = {book["item_code"] for book in get_sample_books()}
+	for voucher in vouchers:
+		if voucher.voucher_type != "Stock Entry":
+			return False
+		entry = frappe.get_doc("Stock Entry", voucher.voucher_no)
+		if entry.stock_entry_type != "Material Receipt" or {d.item_code for d in entry.items} - sample_codes:
+			return False
+	if frappe.db.exists("Bin", {"item_code": item_code, "reserved_qty": [">", 0]}):
+		return False
+
+	for voucher in vouchers:
+		entry = frappe.get_doc("Stock Entry", voucher.voucher_no)
+		entry.flags.ignore_permissions = True
+		entry.cancel()
+
+	ensure_uom()
+	item = frappe.get_doc("Item", item_code)
+	old_uom = item.stock_uom
+	item.stock_uom = SAMPLE_UOM
+	item.flags.ignore_permissions = True
+	item.save()
+	for price in frappe.get_all("Item Price", filters={"item_code": item_code, "uom": old_uom}, pluck="name"):
+		frappe.db.set_value("Item Price", price, "uom", SAMPLE_UOM)
+	return True

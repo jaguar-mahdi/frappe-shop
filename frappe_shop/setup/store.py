@@ -32,7 +32,10 @@ THEME_CUSTOM_SCSS = f""":root {{
 	color: {THEME_PRIMARY_COLOUR};
 }}
 """
-NAVBAR_ITEMS = (("Books", "/all-products"), ("Cart", "/cart"), ("My Orders", "/orders"))
+NAVBAR_ITEMS = (("Books", "/all-products"), ("My Orders", "/orders"))
+# text links replaced by built-in navbar elements (webshop shows a cart icon with its count)
+REMOVED_NAVBAR_ITEMS = (("Cart", "/cart"),)
+STORE_CURRENCY_WITHOUT_DECIMALS = "IQD"
 # English wording for webshop texts (specs/002-storefront-polish, approved 2026-11-21)
 STOREFRONT_TEXTS = {
 	"No products found": "No books found. Try another author or clear the filters.",
@@ -62,6 +65,7 @@ def setup_store(company: str | None = None) -> dict:
 		"theme": ensure_website_theme(),
 		"website": configure_website(),
 		"texts": ensure_storefront_texts(),
+		"currency_precision": ensure_price_format(),
 	}
 
 
@@ -268,6 +272,10 @@ def configure_website() -> dict:
 	for row in settings.top_bar_items:
 		if row.url == "/all-products" and row.label == "Products":  # webshop's default label
 			row.label = "Books"
+	settings.set(
+		"top_bar_items",
+		[row for row in settings.top_bar_items if (row.label, row.url) not in REMOVED_NAVBAR_ITEMS],
+	)
 	existing_urls = {row.url for row in settings.top_bar_items}
 	for label, url in NAVBAR_ITEMS:
 		if url not in existing_urls:
@@ -290,3 +298,26 @@ def ensure_storefront_texts() -> list[str]:
 				{"doctype": "Translation", "language": "en", "source_text": source, "translated_text": text}
 			).insert(ignore_permissions=True)
 	return sorted(STOREFRONT_TEXTS)
+
+
+def ensure_price_format() -> str | None:
+	"""Show IQD prices without decimals (15,000 not 15,000.000).
+
+	Frappe formats every currency amount with System Settings "currency_precision" (fmt_money); when it is
+	empty the 3 decimals of the number format are used. Applied only when the store sells in IQD and the
+	owner has not chosen a precision. IQD's own number format is aligned for the browser.
+	"""
+	price_list = frappe.db.get_single_value("Webshop Settings", "price_list")
+	currency = price_list and frappe.db.get_value("Price List", price_list, "currency")
+	if currency != STORE_CURRENCY_WITHOUT_DECIMALS:
+		return frappe.db.get_default("currency_precision")
+
+	if frappe.db.get_value("Currency", currency, "number_format") != "#,###":
+		frappe.db.set_value("Currency", currency, "number_format", "#,###")
+
+	settings = frappe.get_single("System Settings")
+	if settings.currency_precision in (None, ""):
+		settings.currency_precision = "0"
+		settings.flags.ignore_permissions = True
+		settings.save()
+	return frappe.db.get_default("currency_precision")
