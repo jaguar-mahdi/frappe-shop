@@ -766,3 +766,36 @@ curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $T" -H 'Accept:
 
 1. ظهور الحزمة (`visibility`): الحالة الآن قابلة للسحب العلني، وتُغيَّر من صفحة الحزمة ← `Package settings`.
 2. موافقة يدوية (`required reviewers`) على `staging`: الآن لا توجد، وتُضاف من `Settings` ← `Environments` ← `staging`.
+
+---
+
+## 2026-11-21 — سدّ ثغرة `pre-commit` في `.github/`
+
+### الخطأ
+
+`exclude: 'node_modules|.git'` تعبير نمطي (`regex`) يُطابَق بـ`re.search` على مسار كل ملف:
+- النقطة `.` تعني أي حرف.
+- لا يوجد `/` يحدد بداية اسم المجلد ونهايته.
+
+لذلك طابق النمط `.github/workflows/ci.yml` و`.gitignore`، فاستُبعدت ملفات `CI` من كل الخطافات بصمت.
+
+### الحل
+
+```yaml
+exclude: '(^|/)(\.git|node_modules)/'
+```
+
+- `(^|/)`: بداية المسار أو بعد `/`، أي اسم مجلد كامل.
+- `\.git`: نقطة حقيقية، وليس أي حرف.
+- `/` في النهاية: المجلد نفسه فقط، لا `.github` ولا `.gitignore`.
+
+### التحقق
+
+```bash
+git stash && pre-commit run check-yaml --files .github/workflows/ci.yml   # (no files to check)Skipped
+git stash pop && pre-commit run check-yaml --files .github/workflows/ci.yml   # Passed
+pre-commit run --all-files                                                    # exit=0
+```
+
+- `git stash` يحفظ التعديل مؤقتاً ويعيد الملف إلى حالته الأصلية، و`git stash pop` يعيد التعديل. بهذا قارنّا النمطين على الملف نفسه.
+- لم يظهر أي خطأ جديد في `.github/`: الخطافات المنطبقة هناك هي `check-yaml` و`check-merge-conflict`، ونجحت كلها.
