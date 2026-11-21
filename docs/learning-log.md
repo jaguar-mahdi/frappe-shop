@@ -828,3 +828,56 @@ CodeQL detected code written in JavaScript/TypeScript but could not process any 
 - **حقيقي:** `ci.yml` بلا كتلة `permissions`، فيأخذ `GITHUB_TOKEN` الصلاحيات الافتراضية للمستودع، وقد تكون كتابة. هذا مخالف لمبدأ أقل صلاحية (`least privilege`).
 - **الحل:** `permissions: contents: read` في أعلى الملف. الـ`job` `Server` يقرأ الكود فقط. أما `linter.yml` و`release.yml` ففيهما الكتلة أصلاً.
 - `Dependabot alerts` و`secret scanning alerts`: صفر تنبيهات مفتوحة.
+
+---
+
+## 2026-11-21 — إصلاح: `Place Order` يتجمّد في المتجر
+
+### العَرَض
+
+العميل يضغط `Place Order` على `http://development.localhost:8001` فتبقى الصفحة مجمَّدة بلا رسالة.
+
+### الأدلة، بالترتيب
+
+| الأمر أو الأداة | النتيجة |
+|---|---|
+| `bench --site development.localhost show-pending-jobs` | لا مهام معلّقة |
+| `Error Log` | لا شيء متعلق بالطلب (فقط رسالة `dashboard` لا علاقة لها) |
+| `curl ... /api/method/webshop.webshop.shopping_cart.cart.place_order` بمستخدم موقع (`Website User`) تجريبي | `HTTP 500` بصيغة `HTML` من `Werkzeug`: `BrokenPipeError: [Errno 32] Broken pipe` |
+| استخراج إطارات الـ`traceback` من الصفحة | `cart.py:133` (`throw`)، ثم `handle_exception`، ثم `report_error`، ثم `frappe.errprint`، ثم `print(msg)` الذي فشل |
+| `ls -l /proc/<pid>/fd/1` و`ps -o ppid` | `stdout` الخاص بـ`web.1` هو `pipe`، والأب `ppid 1`، و`honcho` في حالة `<defunct>` منذ `11:18` |
+| خادم مؤقت سليم `bench serve --port 8011` | الطلب نفسه أعاد `HTTP 500 application/json` بـ`QueryTimeoutError` بعد 50 ثانية بالضبط |
+| `information_schema.innodb_trx` (بـ`root`، قراءة فقط) | معاملة `RUNNING`/`Sleep` تحمل قفلاً (`rows_locked 1`)، واتصالها (`ss -tnp`) يخص عملية `web.1` القديمة |
+| `request.js` و`cart.js` | عند `500` يُستدعى `error_callback` فقط، و`cart.js` يمرر `callback` فقط، فلا يُستدعى `unfreeze()` أبداً |
+
+### السبب الجذري
+
+1. **البيئة:** مدير العمليات `honcho` (`bench start`) مات، فبقي `web.1` يتيماً و`stdout` فيه أنبوب لا يقرؤه أحد.
+2. أي خطأ في `place_order` يمر عبر `report_error` ثم `print()`، فيقع `BrokenPipeError` **داخل معالج الأخطاء نفسه، قبل الـ`rollback`**. تبقى المعاملة مفتوحة وتحتفظ بالقفل، ولا يُكتب شيء في `Error Log`.
+3. كل `Place Order` بعدها ينتظر القفل 50 ثانية (`innodb_lock_wait_timeout`) ثم يفشل بـ`QueryTimeoutError`. المتصفح يستلم `HTML 500`، و`cart.js` لا يفك التجميد، فيبدو الأمر تعليقاً.
+4. **خطأ إعدادات حقيقي يظهر حتى على خادم سليم:** `Portal Settings.default_role` فارغ. المستخدمون الجدد ليس لديهم دور `Customer`، فرسالة `Please add Customer role to user` تظهر، وصفحة تأكيد الطلب `/orders/<name>` تعيد `HTTP 403 Not Permitted` بعد نجاح الطلب. تحققنا بإضافة الدور: `403` صارت `200`.
+
+### الحل
+
+- **البيئة:** أعاد المسؤول تشغيل `bench start` بعد إيقاف العمليات القديمة بأرقامها (`kill <pid>`):
+  - رفض نظام الصلاحيات أن أوقف عمليات طرفية المستخدم بنفسي، وهذا صحيح.
+  - المحاولة الأولى فشلت بـ`EADDRINUSE :::9001` لأن `socketio` القديم كان ما يزال يحجز المنفذ.
+  - تحققنا بعدها: `honcho` جديد، و`pipe` جديد، و`open trx: 0`.
+- **الإعدادات (في `frappe_shop` فقط):** `setup_store` يضبط الآن `Portal Settings.default_role = "Customer"` إن كان فارغاً، ولا يغيّر قيمة اختارها المالك.
+  - هذا ما يتوقعه `erpnext`: الـ`hook` `create_customer_or_supplier` عند الدخول يعتمد على الدور الافتراضي.
+  - لم نغيّر `disable_signup`، لأن السماح بالتسجيل العام قرار منتج.
+
+### التحقق
+
+- بعد إعادة التشغيل: `place_order` بلا عنوان أعاد `HTTP 417 application/json` في 0.2 ثانية برسالة واضحة، ولا تجميد.
+- مع عنوان: `HTTP 200` (`SAL-ORD-2026-00002`)، وصفحة الطلب `HTTP 200` بلا زر `Pay`، و`open trx: 0`.
+- اختبار انحدار (`regression test`) اسمه `test_new_website_users_get_customer_role`، يمر عبر `sign_up` الحقيقي. يفشل بدون الإصلاح (`'' != 'Customer'`) وينجح معه. إجمالي الاختبارات: `Ran 21 tests ... OK`.
+
+### خطأ أثناء الاختبار
+
+- `ValidationError: Sign Up is disabled`: الموقع يمنع التسجيل العام. الحل: داخل الاختبار فقط نضبط `disable_signup = 0` ونعيده بـ`addCleanup`.
+
+### دروس
+
+- `pkill -f "<pattern>"` قد يطابق سطر أوامر الـ`shell` نفسه فيقتله (رمز الخروج `144`). الأفضل `kill <pid>` بعد التحقق.
+- `HTTP 500` بصيغة `HTML` بدل `JSON` في `API` إشارة إلى أن معالج الأخطاء نفسه فشل.
