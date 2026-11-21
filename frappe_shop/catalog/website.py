@@ -29,19 +29,12 @@ def hide_online_payment(context):
 	return None
 
 
-ADMIN_LINK = {"label": "Admin", "url": "/app"}
-
-
 def add_storefront_navigation(context):
-	"""update_website_context: staff-only Admin link (FR-002) and the empty orders message (FR-006)."""
-	values = {}
-	user = frappe.session.user
-	if user != "Guest" and frappe.get_cached_value("User", user, "user_type") == "System User":
-		items = list(context.get("top_bar_items") or [])
-		if not any(item.get("url") == ADMIN_LINK["url"] for item in items):
-			items.append(frappe._dict(ADMIN_LINK))
-			values["top_bar_items"] = items
+	"""update_website_context: the empty orders message (FR-006).
 
+	No Admin link: the avatar dropdown already offers "Switch to Desk" to System Users.
+	"""
+	values = {}
 	if context.get("doctype") == "Sales Order" and not context.get("no_result_message"):
 		from frappe_shop.setup.store import ORDERS_EMPTY_MESSAGE
 

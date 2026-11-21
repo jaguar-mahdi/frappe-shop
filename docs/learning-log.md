@@ -952,3 +952,31 @@ frappe_shop/catalog/covers.py
 - بعد الدمج: `gh release create v0.2.0 --target main --generate-notes --title "v0.2.0"`.
   - هذه المرة يتوقف الـ`job` في بيئة `staging` بانتظار موافقة المسؤول (`required_reviewers`).
   - لا يحق لـClaude أن يوافق بنفسه.
+
+---
+
+## 2026-11-21 — إصلاحات المتجر: شريط التنقل، صيغة السعر، الوحدة
+
+- **شريط التنقل:**
+  - أُزيل رابط `Admin`، لأن قائمة الصورة الرمزية (`avatar`) فيها أصلاً "Switch to Desk" لمستخدمي النظام.
+  - أُزيل نص "Cart" من `top_bar_items`.
+  - أيقونة السلة من `webshop` (`.cart-icon`) تظهر فقط عندما يكون العدد أكبر من `0`، وتختفي للضيف (`Guest`). هذا سلوك `webshop` القياسي.
+- **السعر بلا كسور:**
+  - `fmt_money` يأخذ الدقة من `System Settings.currency_precision`. إن كانت فارغة يستعمل دقة `number_format` العامة (`#,###.###`، أي 3 خانات).
+  - **الحل بالإعدادات:** إذا كانت عملة المتجر `IQD` ولم يحدد المالك دقة: `currency_precision = 0`، و`Currency IQD.number_format = "#,###"` للمتصفح.
+  - لم نغيّر `number_format` العام، لأنه يحذف الكسور من الكميات أيضاً.
+- **الوحدة `Book`:** ERPNext يمنع تغيير `stock_uom` بعد وجود حركة مخزون (`check_stock_uom_with_bin`)، ويقول: "cancel the linked documents or create a new Item".
+  - الدالة تغيّر الوحدة فقط إذا كانت حركة الكتاب الوحيدة هي إدخال الافتتاح الخاص بالبيانات التجريبية، ولا حجز عليه (`reserved_qty`).
+  - عندها تلغي الإدخال، وتغيّر الوحدة وسعر الـ`Item Price`، وتعيد إدخال 20 نسخة.
+  - ألغيتُ طلباتي التجريبية (`SAL-ORD-2026-00001`–`00005`) أولاً.
+  - **نتيجة:** 8 كتب صارت `Book`. بقي `BOOK-DEMO-0005` و`0008` على `Nos`، لأن الطلب `SAL-ORD-2026-00006` الخاص بالمسؤول (`Administrator`) يحجزهما. لم نلمسه، وتكفي إعادة تشغيل الدالة بعد إلغائه أو تسليمه.
+- **التحقق:**
+  - `Ran 35 tests ... OK`.
+  - الصفحة تعرض `ع.د 15,000` و`/ Book`.
+  - الطلب `SAL-ORD-2026-00007` بنقرة حقيقية في 0.9 ثانية.
+- **تحقق نشر `v0.2.0`:** الحالة `success` في `staging`. الصورة `ghcr.io/jaguar-mahdi/frappe-shop:0.2.0` و`sha-ee75b90…`، وفيها `frappe-shop==0.2.0`.
+
+### خطأ في `CI` على `PR #21`: `test_iqd_prices_have_no_decimals`
+
+- `AssertionError: '' != '0'`: في `CI` لم تكن هناك `Webshop Settings.price_list`، لأن كل `class` اختبار يتراجع (`rollback`) عن بياناته، و`TestPriceFormat` لم يستدعِ `setup_store()`. محلياً نجح الاختبار لأن الإعدادات محفوظة دائماً في الموقع.
+- **الحل:** `setUpClass` يستدعي `setup_store()`. الدرس: الاختبار يجب ألا يعتمد على حالة موقع التطوير.
